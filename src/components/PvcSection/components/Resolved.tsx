@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { gql, useQuery } from '@apollo/client';
-import { Trophy, User, Users } from 'lucide-react';
+import React, { useState } from "react";
+import { gql, useQuery } from "@apollo/client";
+import { Trophy, User, Users } from "lucide-react";
 import { useAppKitAccount } from "@reown/appkit/react";
-import client from '../client/apollo-client'; // Assuming you have your Apollo client setup
+import client from "../client/apollo-client"; // Assuming you have your Apollo client setup
 
 // GraphQL queries
 const GET_CREATED_GAMES = gql`
@@ -75,36 +75,52 @@ const SUPPORTED_TOKENS = {
 };
 
 const getTokenName = (address: string): string => {
-  const entry = Object.entries(SUPPORTED_TOKENS).find(([_, value]) => 
-    value.toLowerCase() === address.toLowerCase()
+  const entry = Object.entries(SUPPORTED_TOKENS).find(
+    ([_, value]) => value.toLowerCase() === address.toLowerCase()
   );
-  return entry ? entry[0] : 'Unknown Token';
+  return entry ? entry[0] : "Unknown Token";
 };
 
-const truncateAddress = (address: string): string => 
+const truncateAddress = (address: string): string =>
   `${address.slice(0, 6)}...${address.slice(-4)}`;
 
 const GameDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('myGames');
- 
-   const { address} = useAppKitAccount();
+  const [activeTab, setActiveTab] = useState("myGames");
+
+  useAppKitAccount();
   // Query for created games
-  const { data: createdGamesData, loading: loadingCreatedGames, error: errorCreatedGames } = useQuery<{
+  const {
+    data: createdGamesData,
+    loading: loadingCreatedGames,
+    error: errorCreatedGames,
+  } = useQuery<{
     gameCreateds: Game[];
   }>(GET_CREATED_GAMES, { client });
 
   // Query for resolved games (new for "All Games" tab)
-  const { data: resolvedGamesData, loading: loadingResolvedGames, error: errorResolvedGames } = useQuery<{
+  const {
+    data: resolvedGamesData,
+    loading: loadingResolvedGames,
+    error: errorResolvedGames,
+  } = useQuery<{
     gameResolveds: Game[];
   }>(GET_RESOLVED, { client });
 
   // Query for top players
-  const { data: topPlayersData, loading: loadingTopPlayers, error: errorTopPlayers } = useQuery<{
+  const {
+    data: topPlayersData,
+    loading: loadingTopPlayers,
+    error: errorTopPlayers,
+  } = useQuery<{
     gameResolveds: TopPlayer[];
   }>(GET_TOP_PLAYERS, { client });
 
   // Query for player payout
-  const { data: playerPayoutData, loading: loadingPlayerPayout, error: errorPlayerPayout } = useQuery<{
+  const {
+    data: playerPayoutData,
+    loading: loadingPlayerPayout,
+    error: errorPlayerPayout,
+  } = useQuery<{
     gameResolveds: { gameId: string; player: string; payout: number }[];
   }>(GET_PLAYER, { client });
 
@@ -125,8 +141,8 @@ const GameDashboard: React.FC = () => {
     <div className="rounded-lg border border-red-200 p-4 bg-red-50">
       <h3 className="text-red-800 font-medium">Error fetching data</h3>
       <p className="text-red-600">{error.message}</p>
-      <button 
-        onClick={() => window.location.reload()} 
+      <button
+        onClick={() => window.location.reload()}
         className="mt-2 text-sm text-red-600 underline"
       >
         Retry
@@ -140,7 +156,7 @@ const GameDashboard: React.FC = () => {
       <div className="flex space-x-6">
         <div className="flex-1">
           <div className="font-medium">Game ID</div>
-          <div className="font-mono">{(game.gameId)}</div>
+          <div className="font-mono">{game.gameId}</div>
         </div>
         <div className="flex-1">
           <div className="font-medium">Player</div>
@@ -149,19 +165,20 @@ const GameDashboard: React.FC = () => {
         <div className="flex-1">
           <div className="font-medium">Bet Amount</div>
           <div>
-  {(game.betAmount ? (game.betAmount / 1e18).toLocaleString() : 0)}{' '}
-  {getTokenName(game.tokenAddress || '')}
-</div>
-
+            {game.betAmount ? (game.betAmount / 1e18).toLocaleString() : 0}{" "}
+            {getTokenName(game.tokenAddress || "")}
+          </div>
         </div>
         <div className="flex-1">
           <div className="font-medium">Choice</div>
-          <div className={`px-2 py-1 rounded text-sm ${
-            game.playerChoice 
-              ? 'bg-blue-100 text-blue-800' 
-              : 'bg-gray-100 text-gray-800'
-          }`}>
-            {game.playerChoice ? 'Heads' : 'Tails'}
+          <div
+            className={`px-2 py-1 rounded text-sm ${
+              game.playerChoice
+                ? "bg-blue-100 text-blue-800"
+                : "bg-gray-100 text-gray-800"
+            }`}
+          >
+            {game.playerChoice ? "Heads" : "Tails"}
           </div>
         </div>
       </div>
@@ -169,7 +186,13 @@ const GameDashboard: React.FC = () => {
   );
 
   // Top player card component
-  const TopPlayerCard = ({ player, index }: { player: TopPlayer; index: number }) => (
+  const TopPlayerCard = ({
+    player,
+    index,
+  }: {
+    player: TopPlayer;
+    index: number;
+  }) => (
     <div className="border rounded-lg p-4 mb-4 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -195,62 +218,65 @@ const GameDashboard: React.FC = () => {
           <span className="font-medium">
             {game.payout ? game.payout.toLocaleString() : 0}
           </span>
-          <span className={`text-sm ${game.playerWon ? 'text-green-600' : 'text-red-600'}`}>
-            {game.playerWon ? 'Won' : 'Lost'}
+          <span
+            className={`text-sm ${
+              game.playerWon ? "text-green-600" : "text-red-600"
+            }`}
+          >
+            {game.playerWon ? "Won" : "Lost"}
           </span>
         </div>
       </div>
     </div>
   );
-  
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-white rounded-lg border shadow-sm">
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Game Dashboard</h1>
-        
+
         {/* Tabs */}
         <div className="border-b mb-6">
           <div className="flex space-x-6">
             <button
-              onClick={() => setActiveTab('myGames')}
+              onClick={() => setActiveTab("myGames")}
               className={`flex items-center pb-2 px-1 ${
-                activeTab === 'myGames'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500'
+                activeTab === "myGames"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500"
               }`}
             >
               <User className="h-4 w-4 mr-2" />
               My Games
             </button>
             <button
-              onClick={() => setActiveTab('allGames')}
+              onClick={() => setActiveTab("allGames")}
               className={`flex items-center pb-2 px-1 ${
-                activeTab === 'allGames'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500'
+                activeTab === "allGames"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500"
               }`}
             >
               <Users className="h-4 w-4 mr-2" />
               All Games
             </button>
             <button
-              onClick={() => setActiveTab('topPlayers')}
+              onClick={() => setActiveTab("topPlayers")}
               className={`flex items-center pb-2 px-1 ${
-                activeTab === 'topPlayers'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500'
+                activeTab === "topPlayers"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500"
               }`}
             >
               <Trophy className="h-4 w-4 mr-2" />
               Top Players
             </button>
             <button
-              onClick={() => setActiveTab('playerPayout')}
+              onClick={() => setActiveTab("playerPayout")}
               className={`flex items-center pb-2 px-1 ${
-                activeTab === 'playerPayout'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500'
+                activeTab === "playerPayout"
+                  ? "border-b-2 border-blue-500 text-blue-600"
+                  : "text-gray-500"
               }`}
             >
               <Trophy className="h-4 w-4 mr-2" />
@@ -261,7 +287,7 @@ const GameDashboard: React.FC = () => {
 
         {/* Content */}
         <div className="mt-6">
-          {activeTab === 'myGames' && (
+          {activeTab === "myGames" && (
             <>
               {errorCreatedGames ? (
                 <ErrorDisplay error={errorCreatedGames} />
@@ -281,7 +307,7 @@ const GameDashboard: React.FC = () => {
             </>
           )}
 
-          {activeTab === 'allGames' && (
+          {activeTab === "allGames" && (
             <>
               {errorResolvedGames ? (
                 <ErrorDisplay error={errorResolvedGames} />
@@ -301,7 +327,7 @@ const GameDashboard: React.FC = () => {
             </>
           )}
 
-          {activeTab === 'topPlayers' && (
+          {activeTab === "topPlayers" && (
             <>
               {errorTopPlayers ? (
                 <ErrorDisplay error={errorTopPlayers} />
@@ -310,7 +336,11 @@ const GameDashboard: React.FC = () => {
               ) : topPlayersData?.gameResolveds.length ? (
                 <div className="space-y-4">
                   {topPlayersData.gameResolveds.map((player, index) => (
-                    <TopPlayerCard key={player.player} player={player} index={index} />
+                    <TopPlayerCard
+                      key={player.player}
+                      player={player}
+                      index={index}
+                    />
                   ))}
                 </div>
               ) : (
@@ -321,28 +351,27 @@ const GameDashboard: React.FC = () => {
             </>
           )}
 
-          {activeTab === 'playerPayout' && (
-       <>
-       {errorPlayerPayout ? (
-         <ErrorDisplay error={errorPlayerPayout} />
-       ) : loadingPlayerPayout ? (
-         <LoadingState />
-       ) : playerPayoutData?.gameResolveds.length ? (
-         <div className="space-y-4">
-           {playerPayoutData.gameResolveds.map((gameResolved) => (
-             <PlayerPayoutCard 
-               key={gameResolved.gameId} // Use the gameId as the unique key
-               game={gameResolved} // Pass the entire gameResolved object to the card
-             />
-           ))}
-         </div>
-       ) : (
-         <div className="text-center py-8 text-gray-500">
-           There are no player payouts yet.
-         </div>
-       )}
-     </>
-     
+          {activeTab === "playerPayout" && (
+            <>
+              {errorPlayerPayout ? (
+                <ErrorDisplay error={errorPlayerPayout} />
+              ) : loadingPlayerPayout ? (
+                <LoadingState />
+              ) : playerPayoutData?.gameResolveds.length ? (
+                <div className="space-y-4">
+                  {playerPayoutData.gameResolveds.map((gameResolved) => (
+                    <PlayerPayoutCard
+                      key={gameResolved.gameId} // Use the gameId as the unique key
+                      game={gameResolved} // Pass the entire gameResolved object to the card
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  There are no player payouts yet.
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

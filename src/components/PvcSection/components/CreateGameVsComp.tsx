@@ -1,12 +1,17 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { createGame, publicProvider, fallbackProvider, resolveGame } from "../utils/contractfunction";
+import {
+  createGame,
+  publicProvider,
+  fallbackProvider,
+  resolveGame,
+} from "../utils/contractfunction";
 import { Check, XCircle } from "lucide-react";
 import { SUPPORTED_TOKENS } from "../utils/contract";
 import { useAppKitAccount } from "@reown/appkit/react";
 import { ethers } from "ethers";
-import { gql, useQuery } from '@apollo/client';
-import client from '../client/apollo-client';
-import ResolvedGames from './Resolved'
+import { gql, useQuery } from "@apollo/client";
+import client from "../client/apollo-client";
+import ResolvedGames from "./Resolved";
 
 export const GET_CREATED_GAMES = gql`
   query GetCreatedGames {
@@ -24,8 +29,8 @@ export const GET_CREATED_GAMES = gql`
 `;
 
 export const GET_RESOLVED = gql`
-  query GetResolved{
-    gameResolveds{
+  query GetResolved {
+    gameResolveds {
       gameId
       player
       playerWon
@@ -35,8 +40,8 @@ export const GET_RESOLVED = gql`
 `;
 
 export const GET_ALERT = gql`
-  query GetResolved{
-    gameResolveds{
+  query GetResolved {
+    gameResolveds {
       gameId
       player
       playerWon
@@ -44,7 +49,6 @@ export const GET_ALERT = gql`
     }
   }
 `;
-
 
 interface Game {
   gameId: string;
@@ -102,13 +106,13 @@ const CreateGameVsComp: React.FC = () => {
   });
 
   // Fetch created games
-  const { data: createdGamesData, loading: loadingCreatedGames, error: errorCreatedGames } = useQuery<{
+  const { data: createdGamesData } = useQuery<{
     gameCreateds: Game[];
   }>(GET_CREATED_GAMES, {
     client,
   });
 
-  const { data: resolvedData, loading: loadingResolved } = useQuery<{
+  const { data: resolvedData } = useQuery<{
     gameResolveds: Resolved[];
   }>(GET_RESOLVED, {
     variables: { playerAddress: address },
@@ -125,7 +129,11 @@ const CreateGameVsComp: React.FC = () => {
     ];
 
     try {
-      const tokenContract = new ethers.Contract(gameState.tokenAddress, tokenAbi, publicProvider);
+      const tokenContract = new ethers.Contract(
+        gameState.tokenAddress,
+        tokenAbi,
+        publicProvider
+      );
       const [balance, symbol] = await Promise.all([
         tokenContract.balanceOf(address),
         tokenContract.symbol(),
@@ -137,10 +145,17 @@ const CreateGameVsComp: React.FC = () => {
         tokenSymbol: symbol,
       }));
     } catch (primaryError) {
-      console.warn("Primary provider failed, attempting fallback...", primaryError);
+      console.warn(
+        "Primary provider failed, attempting fallback...",
+        primaryError
+      );
 
       try {
-        const fallbackTokenContract = new ethers.Contract(gameState.tokenAddress, tokenAbi, fallbackProvider);
+        const fallbackTokenContract = new ethers.Contract(
+          gameState.tokenAddress,
+          tokenAbi,
+          fallbackProvider
+        );
         const [balance, symbol] = await Promise.all([
           fallbackTokenContract.balanceOf(address),
           fallbackTokenContract.symbol(),
@@ -192,7 +207,9 @@ const CreateGameVsComp: React.FC = () => {
   const handleTokenChange = (event: React.ChangeEvent<{ value: unknown }>) => {
     const selectedTokenAddress = event.target.value as string;
     const selectedTokenKey = Object.keys(SUPPORTED_TOKENS).find(
-      (key) => SUPPORTED_TOKENS[key as keyof typeof SUPPORTED_TOKENS] === selectedTokenAddress
+      (key) =>
+        SUPPORTED_TOKENS[key as keyof typeof SUPPORTED_TOKENS] ===
+        selectedTokenAddress
     ) as keyof typeof SUPPORTED_TOKENS;
 
     setGameState((prevState) => ({
@@ -223,7 +240,11 @@ const CreateGameVsComp: React.FC = () => {
       const tokenAddress = gameState.tokenAddress;
       if (!tokenAddress) throw new Error("Selected token is not supported.");
 
-      await createGame(tokenAddress, gameState.betAmount, gameState.player1Choice);
+      await createGame(
+        tokenAddress,
+        gameState.betAmount,
+        gameState.player1Choice
+      );
 
       setGameState({
         ...gameState,
@@ -271,41 +292,56 @@ const CreateGameVsComp: React.FC = () => {
       console.error("Error resolving game:", err);
       setGameState({
         ...gameState,
-        error: "Failed to resolve game: " + err.message,
+        error:
+          "Failed to resolve game: " +
+          (err instanceof Error ? err.message : "Unknown error"),
       });
     }
   };
 
   // Check if the player has created any games
-  const filteredGames = createdGamesData?.gameCreateds.filter((game) => game.player === address);
+  const filteredGames = createdGamesData?.gameCreateds.filter(
+    (game) => game.player === address
+  );
   const games = filteredGames?.map((game) => game.gameId) || [];
 
   return (
     <div className="flex flex-col justify-center items-center p-4">
       <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
-        <h1 className="text-3xl font-bold text-primary text-center mb-6">Create Game</h1>
+        <h1 className="text-3xl font-bold text-primary text-center mb-6">
+          Create Game
+        </h1>
 
         {/* Token Selection Dropdown */}
         <div className="mb-4">
-          <label htmlFor="token" className="block text-sm font-medium text-gray-700 mb-2">Choose Token</label>
+          <label
+            htmlFor="token"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            Choose Token
+          </label>
           <select
             id="token"
             className="w-full p-2 border rounded-md bg-white"
             value={gameState.tokenAddress || ""}
             onChange={handleTokenChange}
           >
-            {Object.entries(SUPPORTED_TOKENS).map(([tokenName, tokenAddress]) => (
-              <option key={tokenName} value={tokenAddress}>
-                {tokenName}
-              </option>
-            ))}
+            {Object.entries(SUPPORTED_TOKENS).map(
+              ([tokenName, tokenAddress]) => (
+                <option key={tokenName} value={tokenAddress}>
+                  {tokenName}
+                </option>
+              )
+            )}
           </select>
         </div>
 
         {/* Display Token Balance */}
         <div className="mb-4">
           <p className="text-gray-600">
-            {gameState.tokenBalance !== "0" ? `Balance: ${gameState.tokenBalance} ${gameState.tokenSymbol}` : "Fetching balance..."}
+            {gameState.tokenBalance !== "0"
+              ? `Balance: ${gameState.tokenBalance} ${gameState.tokenSymbol}`
+              : "Fetching balance..."}
           </p>
         </div>
 
@@ -324,7 +360,11 @@ const CreateGameVsComp: React.FC = () => {
         {/* Player 1 Choice */}
         <div className="mb-6">
           <button
-            className={`w-full p-3 rounded-md ${gameState.player1Choice ? "bg-blue-500 text-white" : "bg-red-500 text-white"}`}
+            className={`w-full p-3 rounded-md ${
+              gameState.player1Choice
+                ? "bg-blue-500 text-white"
+                : "bg-red-500 text-white"
+            }`}
             onClick={handleChoiceToggle}
           >
             {gameState.player1Choice ? (
@@ -344,27 +384,29 @@ const CreateGameVsComp: React.FC = () => {
           // Flip Button for resolving the game
           <button
             className="w-full p-3 bg-red-500 text-white rounded-md"
-            onClick={() => handleResolve(games[0])}  // Using the first game to resolve
+            onClick={() => handleResolve(games[0])} // Using the first game to resolve
           >
             Flip
           </button>
-        ) : (
-          // Bet Button for creating a game
-          gameState.isLoading ? (
-            <div className="flex justify-center mb-4">
-              <div className="spinner-border" role="status">
-                <span className="sr-only">Loading...</span>
-              </div>
+        ) : // Bet Button for creating a game
+        gameState.isLoading ? (
+          <div className="flex justify-center mb-4">
+            <div className="spinner-border" role="status">
+              <span className="sr-only">Loading...</span>
             </div>
-          ) : (
-            <button
-              className="w-full p-3 bg-blue-500 text-white rounded-md"
-              onClick={handleCreateGame}
-              disabled={gameState.isLoading || !gameState.tokenAddress || !gameState.betAmount}
-            >
-              Bet
-            </button>
-          )
+          </div>
+        ) : (
+          <button
+            className="w-full p-3 bg-blue-500 text-white rounded-md"
+            onClick={handleCreateGame}
+            disabled={
+              gameState.isLoading ||
+              !gameState.tokenAddress ||
+              !gameState.betAmount
+            }
+          >
+            Bet
+          </button>
         )}
 
         {/* Status and Error Messages */}

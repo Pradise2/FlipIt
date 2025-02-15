@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { gql, useQuery } from "@apollo/client";
 import { Trophy, Users, Clock, ArrowUpRight, Gift } from "lucide-react";
-import { claimRewards, getGameStatus, cancelGame, resolveGame } from "../../../utils/contractFunction";
 import {
-  
-  useAppKitAccount
-   } from '@reown/appkit/react'
+  claimRewards,
+  getGameStatus,
+  cancelGame,
+} from "../../../utils/contractFunction";
+import { useAppKitAccount } from "@reown/appkit/react";
 
 // GraphQL queries remain the same
 const GET_GAMES_CREATED = gql`
@@ -36,8 +37,6 @@ const GET_GAMES_JOINED_PLAYER1 = gql`
   }
 `;
 
-
-
 const GET_GAMES_RESOLVED = gql`
   query GetGamesResolved($playerAddress: Bytes!) {
     gameResolveds(where: { winner: $playerAddress }) {
@@ -49,18 +48,14 @@ const GET_GAMES_RESOLVED = gql`
 `;
 const GET_EVENTS_BY_PLAYER = gql`
   query GetEventsByPlayer($playerAddress: Bytes!) {
-    events(where: {
-      _or: [
-        { player1: $playerAddress },
-        { player2: $playerAddress }
-      ]
-    }) {
+    events(
+      where: { _or: [{ player1: $playerAddress }, { player2: $playerAddress }] }
+    ) {
       gameId
       player1
       player2
       betAmount
       tokenAddress
-      
     }
   }
 `;
@@ -78,7 +73,7 @@ const GET_REWARDS_FOR_PLAYER = gql`
 
 interface GameCreated {
   gameId: string;
-  betAmount: string; // Could be a string or number 
+  betAmount: string; // Could be a string or number
   player1Choice: boolean; // Changed from string to boolean
   tokenAddress: string;
 }
@@ -100,7 +95,6 @@ interface Event {
   player2: string;
   betAmount: string;
   tokenAddress: string;
-
 }
 
 interface GameStatus {
@@ -125,11 +119,15 @@ const MyGame = () => {
     GIRTH: "0xa97d71a5fdf906034d9d121ed389665427917ee4",
   };
 
-  const {address} = useAppKitAccount();
-  const [selectedTab, setSelectedTab] = useState<"created" | "joined" | "resolved" | "expired">("created");
-  const [error, setError] = useState<string | null>(null);
+  const { address } = useAppKitAccount();
+  const [selectedTab, setSelectedTab] = useState<
+    "created" | "joined" | "resolved" | "expired"
+  >("created");
+  const [, setError] = useState<string | null>(null);
 
-  const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>({});
+  const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>(
+    {}
+  );
 
   // Separate page state for each tab
   const [pageState, setPageState] = useState({
@@ -168,7 +166,7 @@ const MyGame = () => {
     variables: { playerAddress: address },
     skip: !address,
   });
-  
+
   // Log the expired game data
   if (expiredData) {
     console.log(expiredData);
@@ -176,34 +174,31 @@ const MyGame = () => {
 
   const { data: rewardData } = useQuery<{
     rewardClaimeds: { gameId: string; player: string; amount: string }[];
-  }>(
-    GET_REWARDS_FOR_PLAYER,
-    {
-      variables: {
-        playerAddress: address, // Fetch rewards for this player
-      },
-      skip: !address, // Skip if no address is available
-    }
-  );
+  }>(GET_REWARDS_FOR_PLAYER, {
+    variables: {
+      playerAddress: address, // Fetch rewards for this player
+    },
+    skip: !address, // Skip if no address is available
+  });
 
-  const { data: joinedPData, loading: loadingJoinedP } = useQuery<{
+  const { data: joinedPData } = useQuery<{
     gameJoinedP: GameJoinP[];
   }>(GET_GAMES_JOINED_PLAYER1, {
     variables: { playerAddress: address },
     skip: !address,
   });
-  console.log("data", joinedPData)
-  
+  console.log("data", joinedPData);
+
   useEffect(() => {
     const fetchGameStatuses = async () => {
       const statusMap: Record<string, GameStatus> = {};
-  
+
       // Combine both gameCreateds and gameJoineds into one array
       const allGames = [
         ...(createdData?.gameCreateds || []),
-        ...(joinedData?.gameJoineds || [])
+        ...(joinedData?.gameJoineds || []),
       ];
-  
+
       for (const game of allGames) {
         try {
           const status = await getGameStatus(Number(game.gameId));
@@ -212,24 +207,27 @@ const MyGame = () => {
           console.error("Error fetching status for game:", game.gameId, error);
         }
       }
-      
+
       setGameStatuses(statusMap);
     };
-  
+
     // Only call fetchGameStatuses when either createdData or joinedData has data
-    if ((createdData?.gameCreateds?.length || 0) > 0 || (joinedData?.gameJoineds?.length || 0) > 0) {
+    if (
+      (createdData?.gameCreateds?.length || 0) > 0 ||
+      (joinedData?.gameJoineds?.length || 0) > 0
+    ) {
       fetchGameStatuses();
     }
   }, [createdData, joinedData]); // The useEffect depends on both createdData and joinedData
 
-    function formatTimeLeft(seconds: number): string {
-      const hours = Math.floor(seconds / 3600); // 1 hour = 3600 seconds
-      const minutes = Math.floor((seconds % 3600) / 60); // 1 minute = 60 seconds
-      const remainingSeconds = seconds % 60;
-    
-      // Format the result as "hr:min:sec"
-      return `${hours}h ${minutes}m ${remainingSeconds}s`;
-    }
+  function formatTimeLeft(seconds: number): string {
+    const hours = Math.floor(seconds / 3600); // 1 hour = 3600 seconds
+    const minutes = Math.floor((seconds % 3600) / 60); // 1 minute = 60 seconds
+    const remainingSeconds = seconds % 60;
+
+    // Format the result as "hr:min:sec"
+    return `${hours}h ${minutes}m ${remainingSeconds}s`;
+  }
 
   const weiToEther = (wei: string): string => {
     const weiValue = BigInt(wei);
@@ -250,7 +248,10 @@ const MyGame = () => {
     return tokenName || "Unknown Token";
   };
 
-  const paginateData = (data: GameCreated[] | GameJoined[] | GameResolved[] | Event[], page: number) => {
+  const paginateData = (
+    data: GameCreated[] | GameJoined[] | GameResolved[] | Event[],
+    page: number
+  ) => {
     const startIndex = (page - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     return data.slice(startIndex, endIndex);
@@ -283,41 +284,36 @@ const MyGame = () => {
     },
   ] as const;
 
-   // Handle resolving a game
-   const handleClaimGame = async (gameId: string) => {
+  // Handle resolving a game
+  const handleClaimGame = async (gameId: string) => {
     try {
       console.log(`Claiming rewards for game ${gameId}...`);
       await claimRewards(Number(gameId)); // Assuming claimRewards is defined elsewhere
       console.log(`Successfully claimed rewards for game ${gameId}`);
     } catch (err: any) {
       console.error("Error claiming rewards:", err);
-      setError(err instanceof Error ? `Failed to claim rewards: ${err.message}` : "Failed to claim rewards: An unknown error occurred.");
+      setError(
+        err instanceof Error
+          ? `Failed to claim rewards: ${err.message}`
+          : "Failed to claim rewards: An unknown error occurred."
+      );
     }
-  }
-   // Handle resolving a game
-   const handleCancelGame = async (gameId: string) => {
+  };
+  // Handle resolving a game
+  const handleCancelGame = async (gameId: string) => {
     try {
       console.log(`Claiming rewards for game ${gameId}...`);
       await cancelGame(Number(gameId)); // Assuming claimRewards is defined elsewhere
       console.log(`Successfully claimed rewards for game ${gameId}`);
     } catch (err: any) {
       console.error("Error claiming rewards:", err);
-      setError(err instanceof Error ? `Failed to claim rewards: ${err.message}` : "Failed to claim rewards: An unknown error occurred.");
+      setError(
+        err instanceof Error
+          ? `Failed to claim rewards: ${err.message}`
+          : "Failed to claim rewards: An unknown error occurred."
+      );
     }
-  }
-
-     // Handle resolving a game
-     const handleResolveGame = async (gameId: string) => {
-      try {
-        console.log(`Claiming rewards for game ${gameId}...`);
-        await resolveGame(Number(gameId)); // Assuming claimRewards is defined elsewhere
-        console.log(`Successfully claimed rewards for game ${gameId}`);
-      } catch (err: any) {
-        console.error("Error claiming rewards:", err);
-        setError(err instanceof Error ? `Failed to claim rewards: ${err.message}` : "Failed to claim rewards: An unknown error occurred.");
-      }
-    }
-  
+  };
 
   if (!address) {
     return (
@@ -331,17 +327,16 @@ const MyGame = () => {
   }
 
   // Determine total pages based on selected tab
-  const totalPages = selectedTab === "created"
-    ? Math.ceil((createdData?.gameCreateds.length ?? 0) / itemsPerPage)
-    : selectedTab === "joined"
-    ? Math.ceil((joinedData?.gameJoineds.length ?? 0) / itemsPerPage)
-    : selectedTab === "resolved"
-    ? Math.ceil((resolvedData?.gameResolveds.length ?? 0) / itemsPerPage)
-    : Math.ceil((expiredData?.gameExpireds.length ?? 0) / itemsPerPage); // Handle expired data for pagination
+  const totalPages =
+    selectedTab === "created"
+      ? Math.ceil((createdData?.gameCreateds.length ?? 0) / itemsPerPage)
+      : selectedTab === "joined"
+      ? Math.ceil((joinedData?.gameJoineds.length ?? 0) / itemsPerPage)
+      : selectedTab === "resolved"
+      ? Math.ceil((resolvedData?.gameResolveds.length ?? 0) / itemsPerPage)
+      : Math.ceil((expiredData?.gameExpireds.length ?? 0) / itemsPerPage); // Handle expired data for pagination
 
   const currentPage = pageState[selectedTab];
-
-
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -357,7 +352,9 @@ const MyGame = () => {
             </div>
           </div>
           <div className="ml-4">
-            <h2 className="text-xl text-black font-bold">{formatAddress(address)}</h2>
+            <h2 className="text-xl text-black font-bold">
+              {formatAddress(address)}
+            </h2>
             <div className="flex items-center mt-1 text-gray-600">
               <span className="bg-gray-100 rounded-full px-3 py-1 text-sm">
                 Active Player 🎮
@@ -369,27 +366,26 @@ const MyGame = () => {
 
       {/* Tabs */}
       <div className="border-b">
-  <div className="flex px-4 overflow-x-auto space-x-4 py-4">
-    {tabs.map(({ id, label, icon: Icon, count }) => (
-      <button
-        key={id}
-        onClick={() => setSelectedTab(id as typeof selectedTab)}
-        className={`flex items-center space-x-2 py-2 px-4 min-w-max font-medium transition-colors relative ${
-          selectedTab === id
-            ? "border-b-2 border-purple-500 text-purple-600"
-            : "border-transparent text-gray-500 hover:text-gray-700"
-        }`}
-      >
-        <Icon className="w-5 h-5" />
-        <span>{label}</span>
-        <span className="ml-2 bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 text-xs">
-          {count}
-        </span>
-      </button>
-    ))}
-  </div>
-</div>
-
+        <div className="flex px-4 overflow-x-auto space-x-4 py-4">
+          {tabs.map(({ id, label, icon: Icon, count }) => (
+            <button
+              key={id}
+              onClick={() => setSelectedTab(id as typeof selectedTab)}
+              className={`flex items-center space-x-2 py-2 px-4 min-w-max font-medium transition-colors relative ${
+                selectedTab === id
+                  ? "border-b-2 border-purple-500 text-purple-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Icon className="w-5 h-5" />
+              <span>{label}</span>
+              <span className="ml-2 bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 text-xs">
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Content */}
       <div className="p-6">
@@ -410,9 +406,9 @@ const MyGame = () => {
                     </th>
                     <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Reward
-                    </th> 
-                    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">  
-                      Claim                   
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Claim
                     </th>
                     <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Time
@@ -421,7 +417,7 @@ const MyGame = () => {
                 )}
                 {selectedTab === "resolved" && (
                   <>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -429,16 +425,16 @@ const MyGame = () => {
                     </th>
                   </>
                 )}
-               {selectedTab === "joined" && (
-  <>
-    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-      Time Left
-    </th>
-    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-      Reward Claim
-    </th>
-  </>
-)}
+                {selectedTab === "joined" && (
+                  <>
+                    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Time Left
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Reward Claim
+                    </th>
+                  </>
+                )}
 
                 {selectedTab === "expired" && (
                   <>
@@ -452,198 +448,239 @@ const MyGame = () => {
             <tbody className="divide-y divide-gray-200">
               {/* Dynamically render the table rows based on selectedTab and data */}
               {selectedTab === "created" &&
-  (loadingCreated ? (
-    <tr>
-      <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-        Loading created games...
-      </td>
-    </tr>
-  ) : (
-    paginateData(createdData?.gameCreateds || [], currentPage).map((game) => {
-      const rewardClaim = rewardData?.rewardClaimeds.find(
-        (claim) => claim.gameId === game.gameId
-      );
-      const timeLeft = gameStatuses[game.gameId]?.timeLeft;
-  
-      const joinP = joinedPData?.gameJoineds.find(
-        (player2) => player2.gameId === game.gameId
-      ) || null;
+                (loadingCreated ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
+                      Loading created games...
+                    </td>
+                  </tr>
+                ) : (
+                  paginateData(
+                    createdData?.gameCreateds || [],
+                    currentPage
+                  ).map((game) => {
+                    const rewardClaim = rewardData?.rewardClaimeds.find(
+                      (claim) => claim.gameId === game.gameId
+                    );
+                    const timeLeft = gameStatuses[game.gameId]?.timeLeft;
 
-      return (
-        <tr key={game.gameId} className="text-black hover:bg-gray-50">
-          <td className="px-6 py-4 font-medium">{game.gameId}</td>
-          <td className="px-6 py-4">
-            {weiToEther(game.betAmount)}&nbsp;{getTokenName(game.tokenAddress)}
-          </td>
-          <td className="px-6 py-4">
-            <span
-              className={`px-2 py-1 rounded-full text-sm ${
-                game.player1Choice
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-purple-100 text-purple-800"
-              }`}
-            >
-              {game.player1Choice ? "Head" : "Tail"}
-            </span>
-          </td>
+                    const joinP =
+                      joinedPData?.gameJoinedP.find(
+                        (player2) => player2.gameId === game.gameId
+                      ) || null;
 
-          <td className="px-6 py-4">
-            {rewardClaim ? (
-              <span className="text-green-600 font-medium">
-                {weiToEther(rewardClaim.amount)}
-              </span>
-            ) : (
-              <span className="text-gray-500">No claim</span>
-            )}
-          </td>
+                    return (
+                      <tr
+                        key={game.gameId}
+                        className="text-black hover:bg-gray-50"
+                      >
+                        <td className="px-6 py-4 font-medium">{game.gameId}</td>
+                        <td className="px-6 py-4">
+                          {"betAmount" in (game as GameCreated)
+                            ? weiToEther((game as GameCreated).betAmount)
+                            : "N/A"}
+                          &nbsp;
+                          {"tokenAddress" in (game as GameCreated)
+                            ? getTokenName((game as GameCreated).tokenAddress)
+                            : ""}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2 py-1 rounded-full text-sm ${
+                              (game as GameCreated).player1Choice
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-purple-100 text-purple-800"
+                            }`}
+                          >
+                            {(game as GameCreated).player1Choice
+                              ? "Head"
+                              : "Tail"}
+                          </span>
+                        </td>
 
-          <td className="px-6 py-4">
-            {rewardClaim ? (
-              <span className="text-green-600 font-medium">Claimed</span>
-            ) : timeLeft <= 0 ? (
-              // If time left is expired
-              joinP ? (
-                // Player 2 is present, show Refund button (use handleClaimGame)
-                <button
-                  onClick={() => handleClaimGame(game.gameId)} // Claim function
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  Refund
-                </button>
-              ) : (
-                // No Player 2, show Cancel button (use handleCancelGame)
-                <button
-                  onClick={() => handleCancelGame(game.gameId)} // Cancel function
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                >
-                  Cancel
-                </button>
-              )
-            ) : (
-              // Time left > 0
-              joinP ? (
-                // Player 2 is present, show Reveal button (use handleClaimGame)
-                <button
-                  onClick={() => handleClaimGame(game.gameId)} // Claim function
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-                >
-                  Reveal
-                </button>
-              ) : (
-                // No Player 2 and time left > 0, show "GameOn" with green color
-                <span className="text-green-600 font-medium">GameOn</span>
-              )
-            )}
-          </td>
+                        <td className="px-6 py-4">
+                          {rewardClaim ? (
+                            <span className="text-green-600 font-medium">
+                              {weiToEther(rewardClaim.amount)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">No claim</span>
+                          )}
+                        </td>
 
-          {rewardClaim ? null : (
-            <td className="px-6 py-4">
-              {timeLeft ? (
-                timeLeft > 0
-                  ? formatTimeLeft(timeLeft)
-                  : "Expired"
-              ) : (
-                "Loading..."
-              )}
-            </td>
-          )}
-        </tr>
-      );
-    })
-  ))}
+                        <td className="px-6 py-4">
+                          {rewardClaim ? (
+                            <span className="text-green-600 font-medium">
+                              Claimed
+                            </span>
+                          ) : timeLeft <= 0 ? (
+                            // If time left is expired
+                            joinP ? (
+                              // Player 2 is present, show Refund button (use handleClaimGame)
+                              <button
+                                onClick={() => handleClaimGame(game.gameId)} // Claim function
+                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                              >
+                                Refund
+                              </button>
+                            ) : (
+                              // No Player 2, show Cancel button (use handleCancelGame)
+                              <button
+                                onClick={() => handleCancelGame(game.gameId)} // Cancel function
+                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                              >
+                                Cancel
+                              </button>
+                            )
+                          ) : // Time left > 0
+                          joinP ? (
+                            // Player 2 is present, show Reveal button (use handleClaimGame)
+                            <button
+                              onClick={() => handleClaimGame(game.gameId)} // Claim function
+                              className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                            >
+                              Reveal
+                            </button>
+                          ) : (
+                            // No Player 2 and time left > 0, show "GameOn" with green color
+                            <span className="text-green-600 font-medium">
+                              GameOn
+                            </span>
+                          )}
+                        </td>
 
+                        {rewardClaim ? null : (
+                          <td className="px-6 py-4">
+                            {timeLeft
+                              ? timeLeft > 0
+                                ? formatTimeLeft(timeLeft)
+                                : "Expired"
+                              : "Loading..."}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+                ))}
 
-{selectedTab === "joined" &&
-  (loadingJoined ? (
-    <tr>
-      <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-        Loading joined games...
-      </td>
-    </tr>
-  ) : (
-    paginateData(joinedData?.gameJoineds || [], currentPage).map((game) => {
-      // Get the timeLeft based on game.gameId from gameStatuses
-      const timeLeft = gameStatuses[game.gameId]?.timeLeft;
+              {selectedTab === "joined" &&
+                (loadingJoined ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
+                      Loading joined games...
+                    </td>
+                  </tr>
+                ) : (
+                  paginateData(joinedData?.gameJoineds || [], currentPage).map(
+                    (game) => {
+                      // Get the timeLeft based on game.gameId from gameStatuses
+                      const timeLeft = gameStatuses[game.gameId]?.timeLeft;
 
-      // Get the rewardClaim based on game.gameId from rewardData
-      const rewardClaim = rewardData?.rewardClaimeds.find(
-        (claim) => claim.gameId === game.gameId
-      );
+                      // Get the rewardClaim based on game.gameId from rewardData
+                      const rewardClaim = rewardData?.rewardClaimeds.find(
+                        (claim) => claim.gameId === game.gameId
+                      );
 
+                      const isExpired = timeLeft <= 0; // Check if the game has expired or if timeLeft is 0 or less
 
-      const isExpired = timeLeft <= 0; // Check if the game has expired or if timeLeft is 0 or less
+                      return (
+                        <tr
+                          key={game.gameId}
+                          className="text-black hover:bg-gray-50"
+                        >
+                          <td className="px-6 py-4 font-medium">
+                            {game.gameId}
+                          </td>
+                          <td className="px-6 py-4">
+                            {"betAmount" in game
+                              ? weiToEther(game.betAmount)
+                              : "N/A"}
+                          </td>
 
-      return (
-        <tr key={game.gameId} className="text-black hover:bg-gray-50">
-          <td className="px-6 py-4 font-medium">{game.gameId}</td>
-          <td className="px-6 py-4">{weiToEther(game.betAmount)}</td>
+                          {/* Time Left */}
+                          <td className="px-6 py-4">
+                            {timeLeft
+                              ? isExpired
+                                ? "Expired" // Show "Expired" when timeLeft <= 0
+                                : formatTimeLeft(timeLeft) // Display formatted time left if it's still valid
+                              : "Loading..." // Display loading when timeLeft is not available
+                            }
+                          </td>
 
-          {/* Time Left */}
-          <td className="px-6 py-4">
-            {timeLeft ? (
-              isExpired ? (
-                "Expired" // Show "Expired" when timeLeft <= 0
-              ) : (
-                formatTimeLeft(timeLeft) // Display formatted time left if it's still valid
-              )
-            ) : (
-              "Loading..." // Display loading when timeLeft is not available
-            )}
-          </td>
+                          {/* Reward Name / Claim */}
+                          <td className="px-6 py-4">
+                            {isExpired ? (
+                              <button
+                                className="text-white px-4 py-2 bg-blue-500 rounded-lg font-medium"
+                                onClick={() => handleClaimGame(game.gameId)} // Claim game if expired
+                              >
+                                Refund
+                              </button>
+                            ) : rewardClaim ? (
+                              <span className="text-green-600 font-medium">
+                                {weiToEther(rewardClaim.amount)} (Claimed)
+                              </span>
+                            ) : (
+                              <span className="text-gray-500">No claim</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )
+                ))}
 
-          {/* Reward Name / Claim */}
-          <td className="px-6 py-4">
-            {isExpired ? (
-              <button
-                className="text-white px-4 py-2 bg-blue-500 rounded-lg font-medium"
-                onClick={() => handleClaimGame(game.gameId)} // Claim game if expired
-              >
-                Refund
-              </button>
-            ) : rewardClaim ? (
-              <span className="text-green-600 font-medium">
-                {weiToEther(rewardClaim.amount)} (Claimed)
-              </span>
-            ) : (
-              <span className="text-gray-500">No claim</span>
-            )}
-          </td>
-        </tr>
-      );
-    })
-  ))}
+              {selectedTab === "resolved" &&
+                (loadingResolved ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
+                      Loading resolved games...
+                    </td>
+                  </tr>
+                ) : (
+                  paginateData(
+                    resolvedData?.gameResolveds || [],
+                    currentPage
+                  ).map((game) => {
+                    const isWinner =
+                      (game as GameResolved).winner.toLowerCase() ===
+                      address.toLowerCase(); // Check if the current player is the winner
+                    return (
+                      <tr
+                        key={game.gameId}
+                        className="hover:bg-gray-50 text-black"
+                      >
+                        <td className="px-6 py-4 font-medium">{game.gameId}</td>
 
-
-{selectedTab === "resolved" &&
-  (loadingResolved ? (
-    <tr>
-      <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
-        Loading resolved games...
-      </td>
-    </tr>
-  ) : (
-    paginateData(resolvedData?.gameResolveds || [], currentPage).map((game) => {
-      const isWinner = game.winner.toLowerCase() === address.toLowerCase(); // Check if the current player is the winner
-      return (
-        <tr key={game.gameId} className="hover:bg-gray-50 text-black">
-          <td className="px-6 py-4 font-medium">{game.gameId}</td>
-          
-          <td className="px-6 py-4">
-            {isWinner ? (
-              <span className="text-green-600 font-medium">Won</span>
-            ) : (
-              <span className="text-red-600 font-medium">Lost</span>
-            )}
-          </td>
-          <td className="px-6 py-4">
-            <span className="text-green-600 font-medium">
-              {weiToEther(game.payout)}
-            </span>
-          </td>
-        </tr>
-      );
-    })
-  ))}
+                        <td className="px-6 py-4">
+                          {isWinner ? (
+                            <span className="text-green-600 font-medium">
+                              Won
+                            </span>
+                          ) : (
+                            <span className="text-red-600 font-medium">
+                              Lost
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-green-600 font-medium">
+                            {weiToEther((game as GameResolved).payout)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ))}
 
               {selectedTab === "expired" &&
                 (loadingExpired ? (
@@ -656,10 +693,15 @@ const MyGame = () => {
                     </td>
                   </tr>
                 ) : (
-                  paginateData(expiredData?.gameExpireds || [], currentPage).map((game) => (
-                    <tr key={game.gameId} className="text-black hover:bg-gray-50">
+                  paginateData(
+                    expiredData?.gameExpireds || [],
+                    currentPage
+                  ).map((game) => (
+                    <tr
+                      key={game.gameId}
+                      className="text-black hover:bg-gray-50"
+                    >
                       <td className="px-6 py-4 font-medium">{game.gameId}</td>
-                      
                     </tr>
                   ))
                 ))}
@@ -703,7 +745,3 @@ const MyGame = () => {
 };
 
 export default MyGame;
-
-
-
-
