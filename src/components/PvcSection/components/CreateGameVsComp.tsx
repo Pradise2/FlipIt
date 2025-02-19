@@ -181,6 +181,7 @@ const FlipCoin = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
+        <appkit-button size="sm" balance="show" />
         {/* Error/Success Notifications */}
         {state.error && (
           <div className="fixed top-4 right-4 bg-red-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
@@ -246,7 +247,9 @@ const FlipCoin = () => {
                       backfaceVisibility: "hidden",
                     }}
                   >
-                    <span className="text-lg text-purple-100 font-bold">H</span>
+                    <span className="text-lg text-purple-100 font-bold">
+                      TAIL
+                    </span>
                   </div>
                   <div
                     className="absolute w-full h-full backface-hidden bg-gradient-to-br from-purple-700 to-purple-900 rounded-full flex items-center justify-center shadow-lg"
@@ -259,7 +262,9 @@ const FlipCoin = () => {
                       backfaceVisibility: "hidden",
                     }}
                   >
-                    <span className="text-lg text-purple-100 font-bold">T</span>
+                    <span className="text-lg text-purple-100 font-bold">
+                      HEAD
+                    </span>
                   </div>
                 </div>
               </div>

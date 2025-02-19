@@ -1,17 +1,11 @@
-
- 
-import  Create  from './components/CreateGameVsComp'
-import ResolvedGames from './components/Resolved'
-
+import Create from "./components/CreateGameVsComp";
 
 const Pvc = () => {
   return (
     <>
-    <Create/>
-    <ResolvedGames/>
- 
+      <Create />
     </>
-  )
-}
+  );
+};
 
-export default Pvc
+export default Pvc;
