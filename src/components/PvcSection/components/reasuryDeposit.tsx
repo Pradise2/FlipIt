@@ -1,4 +1,4 @@
-import  { useState } from "react";
+import { useState } from "react";
 import { depositToTreasury } from "../utils/contractfunction"; // Import the deposit function
 
 const TreasuryDeposit = () => {
@@ -12,13 +12,14 @@ const TreasuryDeposit = () => {
     try {
       setLoading(true); // Set loading to true while transaction is being processed
       setStatus("Processing deposit...");
-  
+
       // Call depositToTreasury function (your implementation of deposit logic)
       await depositToTreasury(tokenAddress, amount);
-  
+
       // On success, update the status
       setStatus("Deposit successful!");
-    } catch (error: unknown) { // Make sure to type error as `unknown`
+    } catch (error: unknown) {
+      // Make sure to type error as `unknown`
       // Check if the error is an instance of Error
       if (error instanceof Error) {
         setStatus("Error: " + error.message); // Safely access error.message
@@ -31,14 +32,19 @@ const TreasuryDeposit = () => {
       setLoading(false);
     }
   };
-  
+
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-md rounded-lg">
-      <h2 className="text-2xl font-semibold text-center mb-6">Deposit Tokens to Treasury</h2>
+      <h2 className="text-2xl font-semibold text-center mb-6">
+        Deposit Tokens to Treasury
+      </h2>
 
       {/* Token Address Input */}
       <div className="mb-4">
-        <label htmlFor="tokenAddress" className="block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="tokenAddress"
+          className="block text-sm font-medium text-gray-700"
+        >
           Token Address:
         </label>
         <input
@@ -53,7 +59,10 @@ const TreasuryDeposit = () => {
 
       {/* Deposit Amount Input */}
       <div className="mb-4">
-        <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="amount"
+          className="block text-sm font-medium text-gray-700"
+        >
           Amount to Deposit:
         </label>
         <input
@@ -80,7 +89,11 @@ const TreasuryDeposit = () => {
       {/* Status Message */}
       <div>
         {status && (
-          <p className={`text-center ${status.includes("Error") ? "text-red-600" : "text-green-600"}`}>
+          <p
+            className={`text-center ${
+              status.includes("Error") ? "text-red-600" : "text-green-600"
+            }`}
+          >
             {status}
           </p>
         )}

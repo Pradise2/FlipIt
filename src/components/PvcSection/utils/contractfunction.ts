@@ -11,7 +11,12 @@ export const fallbackProvider = new ethers.JsonRpcProvider(
 );
 
 export const publicContract = new ethers.Contract(ADDRESS, ABI, publicProvider);
-
+export const depositToTreasury = async (
+  _tokenAddress: string,
+  _amount: string
+) => {
+  // implementation
+};
 // Function to set up signer and contract for wallet interaction
 async function setupContractWithSigner() {
   try {
