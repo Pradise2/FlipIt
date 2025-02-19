@@ -34,63 +34,133 @@ async function setupContractWithSigner() {
   }
 }
 
-// Function to create a new game
-// Function to create a new game
-
-// Previous provider setup code remains the same...
-
-// Add a function to check if token is approved in the contract
-async function isTokenApprovedInContract(
-  tokenAddress: string,
-  userAddress: string
-) {
-  try {
-    const { contract } = await setupContractWithSigner();
-    return await contract.approvedTokens(userAddress, tokenAddress);
-  } catch (error) {
-    console.error("Error checking token approval status:", error);
-    return false;
-  }
+// Function to handle contract errors with additional info
+interface ContractError extends Error {
+  code?: string;
+  transaction?: any;
+  revert?: string;
 }
 
-// Add a function to approve token in the contract
-async function approveTokenInContract(tokenAddress: string) {
+function handleContractError(error: ContractError) {
+  if (error.code === "CALL_EXCEPTION") {
+    console.error("Transaction data:", error.transaction);
+    if (error.revert) {
+      console.error("Revert reason:", error.revert);
+    }
+  } else if (error.code === "ACTION_REJECTED") {
+    console.error("User rejected the action:", error);
+  } else {
+    console.error("Unexpected error:", error);
+  }
+}
+// Function to monitor bet status
+export const getBetStatus = async (requestId: string) => {
   try {
     const { contract } = await setupContractWithSigner();
-    const tx = await contract.approveToken(tokenAddress);
-    await tx.wait();
-    console.log("Token approved in contract with unlimited amount");
-    return true;
+    const status = await contract.getBetStatus(requestId);
+    return status;
   } catch (error) {
-    console.error("Error approving token in contract:", error);
+    console.error("Error getting bet status:", error);
+    handleContractError(error as ContractError);
     throw error;
   }
-}
+};
 
-// Add a function to check ERC20 allowance
-async function checkTokenAllowance(tokenAddress: string, amount: string) {
+export const getGameOutcome = async (requestId: string) => {
   try {
-    const { signer } = await setupContractWithSigner();
-    const tokenContract = new ethers.Contract(
-      tokenAddress,
-      [
-        "function allowance(address owner, address spender) public view returns (uint256)",
-      ],
-      signer
-    );
-
-    const userAddress = await signer.getAddress();
-    const allowance = await tokenContract.allowance(userAddress, ADDRESS);
-    const requiredAmount = ethers.parseUnits(amount, 18);
-
-    return allowance >= requiredAmount;
+    const { contract } = await setupContractWithSigner();
+    const outcome = await contract.getGameOutcome(requestId);
+    return outcome;
   } catch (error) {
-    console.error("Error checking token allowance:", error);
-    return false;
+    console.error("Error getting game outcome:", error);
+    handleContractError(error as ContractError);
+    throw error;
   }
-}
+};
 
-// Updated flip function with proper approval flow
+// Function to create a new game
+// export const flip = async (
+//   tokenAddress: string,
+//   tokenAmount: string,
+//   face: boolean
+// ) => {
+//   try {
+//     // Set up contract with signer
+//     const { signer, contract } = await setupContractWithSigner();
+
+//     console.log(
+//       "Creating game with amount:",
+//       tokenAmount,
+//       "and token address:",
+//       tokenAddress
+//     );
+
+//     // Create token contract instance
+//     const tokenContract = new ethers.Contract(
+//       tokenAddress,
+//       [
+//         // ERC-20 ABI for allowance function
+//         "function allowance(address owner, address spender) external view returns (uint256)",
+//         "function approve(address spender, uint256 amount) external returns (bool)",
+//         "function balanceOf(address owner) external view returns (uint256)",
+//       ],
+//       signer
+//     );
+
+//     console.log("Token contract:", tokenContract);
+
+//     // Convert betAmount to the correct token decimals (18 decimals)
+//     const tokenAmountInWei = ethers.parseUnits(tokenAmount, 18);
+
+//     console.log("betAmountInWei:", tokenAmountInWei.toString());
+
+//     const Player = await signer.getAddress();
+
+//     console.log("playeradress", Player);
+
+//     // Step 1: Check Player 1's balance to make sure they have enough tokens
+//     const balance = await tokenContract.balanceOf(await signer.getAddress());
+//     console.log("Player balance:", balance.toString());
+
+//     // Ensure the balance is sufficient
+//     if (balance < tokenAmountInWei) {
+//       const errorMessage = "Not enough tokens to create game";
+//       console.error(errorMessage);
+//       throw new Error(errorMessage);
+//     }
+
+//     // Step 3: Approve token spending to the contract address
+//     const approveTx = await tokenContract.approve(ADDRESS, tokenAmountInWei);
+
+//     console.log("Approval transaction sent, waiting for confirmation...");
+
+//     await approveTx.wait();
+//     console.log("Token approved successfully.");
+
+//     console.log("Creating game with:", tokenAmountInWei, tokenAddress, face);
+
+//     const allowance = await tokenContract.allowance(
+//       await signer.getAddress(),
+//       ADDRESS
+//     );
+//     console.log("Allowance for user:", allowance.toString());
+
+//     // Step 3: Create the game by calling the contract's createGame function
+//     const tx = await contract.flip(tokenAmountInWei, tokenAddress, face);
+//     console.log("Game creation transaction sent, waiting for confirmation...");
+//     console.log("Creating game with:", tokenAmountInWei, tokenAddress, face);
+
+//     const receipt = await tx.wait();
+//     console.log("Game created successfull:", tx);
+
+//     return receipt;
+//   } catch (error) {
+//     console.error("Error creating game:", error);
+
+//     handleContractError(error as ContractError);
+//   }
+// };
+
 export const flip = async (
   tokenAddress: string,
   tokenAmount: string,
@@ -98,79 +168,56 @@ export const flip = async (
 ) => {
   try {
     const { signer, contract } = await setupContractWithSigner();
-    const userAddress = await signer.getAddress();
-    const betAmountInWei = ethers.parseUnits(tokenAmount, 18);
 
-    // Step 1: Check if token is approved in the contract
-    const isApprovedInContract = await isTokenApprovedInContract(
-      tokenAddress,
-      userAddress
-    );
-    // Inside flip function, after checking token approval
-    if (!isApprovedInContract) {
-      console.log("Token not approved in contract, approving...");
-      try {
-        await approveTokenInContract(tokenAddress);
-      } catch (approvalError) {
-        throw new Error(
-          "Failed to approve token for betting: " +
-            (approvalError as Error).message
-        );
-      }
-    }
+    // Convert betAmount to the correct token decimals
+    const tokenAmountInWei = ethers.parseUnits(tokenAmount, 18);
 
-    // Step 2: Check and set token allowance
-    const hasAllowance = await checkTokenAllowance(tokenAddress, tokenAmount);
-    if (!hasAllowance) {
-      console.log("Setting token allowance...");
-      const tokenContract = new ethers.Contract(
-        tokenAddress,
-        [
-          "function approve(address spender, uint256 amount) public returns (bool)",
-        ],
-        signer
-      );
-
-      const approveTx = await tokenContract.approve(ADDRESS, betAmountInWei);
-      await approveTx.wait();
-      console.log("Token allowance set successfully");
-    }
-
-    // Step 3: Check balance
+    // Create token contract instance
     const tokenContract = new ethers.Contract(
       tokenAddress,
-      ["function balanceOf(address owner) public view returns (uint256)"],
+      [
+        "function allowance(address owner, address spender) external view returns (uint256)",
+        "function approve(address spender, uint256 amount) external returns (bool)",
+        "function balanceOf(address owner) external view returns (uint256)",
+      ],
       signer
     );
 
-    const balance = await tokenContract.balanceOf(userAddress);
-    if (balance < betAmountInWei) {
+    // Check balance
+    const balance = await tokenContract.balanceOf(await signer.getAddress());
+    if (balance < tokenAmountInWei) {
       throw new Error("Insufficient token balance");
     }
 
-    // Step 4: Execute the flip
-    console.log("Creating game with amount:", tokenAmount, "and face:", face);
-    const tx = await contract.flip(face, tokenAddress, betAmountInWei);
+    // Approve tokens
+    const approveTx = await tokenContract.approve(ADDRESS, tokenAmountInWei);
+    await approveTx.wait();
+
+    // Send the flip transaction
+    const tx = await contract.flip(face, tokenAddress, tokenAmountInWei);
+
     const receipt = await tx.wait();
-    console.log("Game created successfully:", receipt);
 
-    return receipt;
-  } catch (error: any) {
-    console.error("Error creating game:", error);
+    // Get the requestId from the event
+    const betSentEvent = receipt.logs
+      .map((log: any) => {
+        try {
+          return contract.interface.parseLog(log);
+        } catch (e) {
+          return null;
+        }
+      })
+      .find((event: any) => event && event.name === "BetSent");
 
-    // Enhanced error handling
-    if (error.code === "CALL_EXCEPTION") {
-      if (error.reason?.includes("Token not allowed")) {
-        throw new Error("This token is not allowed for betting");
-      } else if (error.reason?.includes("Please approve")) {
-        throw new Error("Token approval failed. Please try again");
-      } else if (error.reason?.includes("Insufficient")) {
-        throw new Error("Insufficient token balance");
-      }
-    } else if (error.code === "ACTION_REJECTED") {
-      throw new Error("Transaction rejected by user");
-    }
+    const requestId = betSentEvent ? betSentEvent.args.requestId : null;
 
+    return {
+      receipt,
+      requestId,
+    };
+  } catch (error) {
+    console.error("Error in flip function:", error);
+    handleContractError(error as ContractError);
     throw error;
   }
 };

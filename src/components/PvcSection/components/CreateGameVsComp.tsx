@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { SUPPORTED_TOKENS } from "../utils/contract";
 import { useAppKitAccount } from "@reown/appkit/react";
-import { flip, publicProvider } from "../utils/contractfunction";
+import {
+  flip,
+  publicProvider,
+  getBetStatus,
+  getGameOutcome,
+} from "../utils/contractfunction";
 import { ethers } from "ethers";
 
 interface FlipCoin {
@@ -29,6 +34,8 @@ const FlipCoin = () => {
     tokenSymbol: "STABLEAI",
     isApproving: false,
   });
+
+  const [requestId, setRequestId] = useState<string | null>(null);
 
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipResult, setFlipResult] = useState<{
@@ -81,51 +88,85 @@ const FlipCoin = () => {
     return null;
   };
 
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (requestId) {
+      intervalId = setInterval(async () => {
+        try {
+          const status = await getBetStatus(requestId);
+
+          if (status.fulfilled) {
+            clearInterval(intervalId);
+            const outcome = await getGameOutcome(requestId);
+
+            setFlipResult({
+              won: outcome.playerWon,
+              result: `You ${outcome.playerWon ? "Won" : "Lost"}. Choice: ${
+                outcome.playerChoice ? "Tails" : "Heads"
+              }, Outcome: ${outcome.outcome ? "Tails" : "Heads"}.`,
+            });
+
+            setState((prev) => ({
+              ...prev,
+              success: "Flip completed",
+              loading: false,
+            }));
+
+            // Refresh token balance
+            fetchTokenBalance();
+          }
+        } catch (error) {
+          console.error("Error checking bet status:", error);
+          clearInterval(intervalId);
+          setState((prev) => ({
+            ...prev,
+            error: "Error checking bet status",
+            loading: false,
+          }));
+        }
+      }, 2000); // Poll every 2 seconds
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [requestId]);
+
   const handleFlipCoin = async () => {
     const validationError = validateInput();
     if (validationError) {
-      setState((prevState) => ({ ...prevState, error: validationError }));
+      setState((prev) => ({ ...prev, error: validationError }));
       return;
     }
 
-    setState((prevState) => ({
-      ...prevState,
+    setState((prev) => ({
+      ...prev,
       loading: true,
       error: null,
       success: null,
     }));
 
-    setIsFlipping(true); // Start flip animation
+    setIsFlipping(true);
 
     try {
-      await flip(state.tokenAddress, state.tokenAmount, state.face);
+      const { requestId: newRequestId } = await flip(
+        state.tokenAddress,
+        state.tokenAmount,
+        state.face
+      );
 
-      // Simulate waiting for blockchain result (replace with actual blockchain event listening)
-      setTimeout(() => {
-        const result = Math.random() > 0.5; // Random win/lose for simulation
-        setFlipResult({
-          won: result,
-          result: `You ${result ? "Won" : "Lost"}. Choice: ${
-            state.face ? "Tails" : "Heads"
-          }, Outcome: ${result ? "Tails" : "Heads"}.`,
-        });
-        setIsFlipping(false);
-        setState((prevState) => ({
-          ...prevState,
-          success: "Flip successful",
-          loading: false,
-        }));
-        fetchTokenBalance();
-      }, 2000); // Simulation delay
+      setRequestId(newRequestId);
     } catch (error: any) {
       console.error("Error flipping coin:", error);
       let errorMessage = "Failed to flip coin";
       if (error.message?.includes("Token not allowed")) {
         errorMessage = "This token is not allowed for betting";
       }
-      // ... handle other specific errors
-      setState((prevState) => ({
-        ...prevState,
+      setState((prev) => ({
+        ...prev,
         error: errorMessage,
         loading: false,
       }));

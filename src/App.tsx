@@ -4,7 +4,7 @@ import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { projectId, metadata, networks, wagmiAdapter } from "./config/config";
 // import { ApolloProvider } from "@apollo/client";
-// import client from "./components/PvpSection/client/apollo-client";
+
 import HomePage from "./components/HomePage";
 import "./App.css";
 
