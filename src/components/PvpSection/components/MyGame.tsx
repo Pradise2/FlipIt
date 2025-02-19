@@ -5,6 +5,7 @@ import {
   claimRewards,
   getGameStatus,
   cancelGame,
+  resolveGame,
 } from "../../../utils/contractFunction";
 import { useAppKitAccount } from "@reown/appkit/react";
 
@@ -123,7 +124,7 @@ const MyGame = () => {
   const [selectedTab, setSelectedTab] = useState<
     "created" | "joined" | "resolved" | "expired"
   >("created");
-  const [, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [gameStatuses, setGameStatuses] = useState<Record<string, GameStatus>>(
     {}
@@ -181,7 +182,7 @@ const MyGame = () => {
     skip: !address, // Skip if no address is available
   });
 
-  const { data: joinedPData } = useQuery<{
+  const { data: joinedPData, loading: loadingJoinedP } = useQuery<{
     gameJoinedP: GameJoinP[];
   }>(GET_GAMES_JOINED_PLAYER1, {
     variables: { playerAddress: address },
@@ -304,6 +305,22 @@ const MyGame = () => {
     try {
       console.log(`Claiming rewards for game ${gameId}...`);
       await cancelGame(Number(gameId)); // Assuming claimRewards is defined elsewhere
+      console.log(`Successfully claimed rewards for game ${gameId}`);
+    } catch (err: any) {
+      console.error("Error claiming rewards:", err);
+      setError(
+        err instanceof Error
+          ? `Failed to claim rewards: ${err.message}`
+          : "Failed to claim rewards: An unknown error occurred."
+      );
+    }
+  };
+
+  // Handle resolving a game
+  const handleResolveGame = async (gameId: string) => {
+    try {
+      console.log(`Claiming rewards for game ${gameId}...`);
+      await resolveGame(Number(gameId)); // Assuming claimRewards is defined elsewhere
       console.log(`Successfully claimed rewards for game ${gameId}`);
     } catch (err: any) {
       console.error("Error claiming rewards:", err);
@@ -468,7 +485,7 @@ const MyGame = () => {
                     const timeLeft = gameStatuses[game.gameId]?.timeLeft;
 
                     const joinP =
-                      joinedPData?.gameJoinedP.find(
+                      joinedPData?.gameJoineds.find(
                         (player2) => player2.gameId === game.gameId
                       ) || null;
 
@@ -479,25 +496,18 @@ const MyGame = () => {
                       >
                         <td className="px-6 py-4 font-medium">{game.gameId}</td>
                         <td className="px-6 py-4">
-                          {"betAmount" in (game as GameCreated)
-                            ? weiToEther((game as GameCreated).betAmount)
-                            : "N/A"}
-                          &nbsp;
-                          {"tokenAddress" in (game as GameCreated)
-                            ? getTokenName((game as GameCreated).tokenAddress)
-                            : ""}
+                          {weiToEther(game.betAmount)}&nbsp;
+                          {getTokenName(game.tokenAddress)}
                         </td>
                         <td className="px-6 py-4">
                           <span
                             className={`px-2 py-1 rounded-full text-sm ${
-                              (game as GameCreated).player1Choice
+                              game.player1Choice
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-purple-100 text-purple-800"
                             }`}
                           >
-                            {(game as GameCreated).player1Choice
-                              ? "Head"
-                              : "Tail"}
+                            {game.player1Choice ? "Head" : "Tail"}
                           </span>
                         </td>
 
@@ -598,9 +608,7 @@ const MyGame = () => {
                             {game.gameId}
                           </td>
                           <td className="px-6 py-4">
-                            {"betAmount" in game
-                              ? weiToEther(game.betAmount)
-                              : "N/A"}
+                            {weiToEther(game.betAmount)}
                           </td>
 
                           {/* Time Left */}
@@ -652,8 +660,7 @@ const MyGame = () => {
                     currentPage
                   ).map((game) => {
                     const isWinner =
-                      (game as GameResolved).winner.toLowerCase() ===
-                      address.toLowerCase(); // Check if the current player is the winner
+                      game.winner.toLowerCase() === address.toLowerCase(); // Check if the current player is the winner
                     return (
                       <tr
                         key={game.gameId}
@@ -674,7 +681,7 @@ const MyGame = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-green-600 font-medium">
-                            {weiToEther((game as GameResolved).payout)}
+                            {weiToEther(game.payout)}
                           </span>
                         </td>
                       </tr>

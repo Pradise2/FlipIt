@@ -1,127 +1,48 @@
-import React, { useState, useCallback, useEffect } from "react";
-import {
-  createGame,
-  publicProvider,
-  fallbackProvider,
-  resolveGame,
-} from "../utils/contractfunction";
-import { Check, XCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { SUPPORTED_TOKENS } from "../utils/contract";
 import { useAppKitAccount } from "@reown/appkit/react";
+import {
+  flip,
+  publicProvider,
+  fallbackProvider,
+} from "../utils/contractfunction";
 import { ethers } from "ethers";
-import { gql, useQuery } from "@apollo/client";
-import client from "../client/apollo-client";
-import ResolvedGames from "./Resolved";
 
-export const GET_CREATED_GAMES = gql`
-  query GetCreatedGames {
-    gameCreateds {
-      gameId
-      player
-      betAmount
-      tokenAddress
-      playerChoice
-      blockNumber
-      blockTimestamp
-      transactionHash
-    }
-  }
-`;
-
-export const GET_RESOLVED = gql`
-  query GetResolved {
-    gameResolveds {
-      gameId
-      player
-      playerWon
-      payout
-    }
-  }
-`;
-
-export const GET_ALERT = gql`
-  query GetResolved {
-    gameResolveds {
-      gameId
-      player
-      playerWon
-      payout
-    }
-  }
-`;
-
-interface Game {
-  gameId: string;
-  player: string;
-  playerWon?: boolean;
-  payout?: number;
-  betAmount?: number;
-  tokenAddress?: string;
-  playerChoice?: boolean;
-}
-
-interface GameState {
+interface FlipCoin {
   tokenAddress: string;
-  betAmount: string;
-  player1Choice: boolean;
-  status: string | null;
-  isLoading: boolean;
+  tokenAmount: string;
+  face: boolean;
   error: string | null;
+  loading: boolean;
+  success: string | null;
   tokenBalance: string;
   tokenSymbol: string;
+  isApproving: boolean;
 }
 
-interface Resolved {
-  gameId: string;
-  player: string;
-  playerWon: string;
-  payout: string;
-}
-
-const CreateGameVsComp: React.FC = () => {
-  const [gameState, setGameState] = useState<GameState>({
+const FlipCoin = () => {
+  const { address, isConnected } = useAppKitAccount();
+  const [state, setState] = useState<FlipCoin>({
+    face: false,
+    tokenAmount: "",
     tokenAddress: SUPPORTED_TOKENS.STABLEAI,
-    betAmount: "",
-    player1Choice: true,
-    status: null,
-    isLoading: false,
+    loading: false,
     error: null,
+    success: null,
     tokenBalance: "0",
     tokenSymbol: "STABLEAI",
+    isApproving: false,
   });
 
-  const { address, isConnected } = useAppKitAccount();
-
-  // State for Alert
-  const [alert, setAlert] = useState<{
-    show: boolean;
-    gameId: string;
-    playerWon: boolean;
-    payout: string;
-  }>({
-    show: false,
-    gameId: "",
-    playerWon: false,
-    payout: "",
-  });
-
-  // Fetch created games
-  const { data: createdGamesData } = useQuery<{
-    gameCreateds: Game[];
-  }>(GET_CREATED_GAMES, {
-    client,
-  });
-
-  const { data: resolvedData } = useQuery<{
-    gameResolveds: Resolved[];
-  }>(GET_RESOLVED, {
-    variables: { playerAddress: address },
-    skip: !address,
-  });
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipResult, setFlipResult] = useState<{
+    won: boolean | null;
+    result: string | null;
+  }>({ won: null, result: null });
 
   // Fetch token balance
   const fetchTokenBalance = useCallback(async () => {
-    if (!address || !gameState.tokenAddress || !isConnected) return;
+    if (!address || !state.tokenAddress || !isConnected) return;
 
     const tokenAbi = [
       "function balanceOf(address owner) view returns (uint256)",
@@ -130,7 +51,7 @@ const CreateGameVsComp: React.FC = () => {
 
     try {
       const tokenContract = new ethers.Contract(
-        gameState.tokenAddress,
+        state.tokenAddress,
         tokenAbi,
         publicProvider
       );
@@ -139,42 +60,16 @@ const CreateGameVsComp: React.FC = () => {
         tokenContract.symbol(),
       ]);
 
-      setGameState((prevState) => ({
+      setState((prevState) => ({
         ...prevState,
         tokenBalance: ethers.formatUnits(balance, 18),
         tokenSymbol: symbol,
       }));
-    } catch (primaryError) {
-      console.warn(
-        "Primary provider failed, attempting fallback...",
-        primaryError
-      );
-
-      try {
-        const fallbackTokenContract = new ethers.Contract(
-          gameState.tokenAddress,
-          tokenAbi,
-          fallbackProvider
-        );
-        const [balance, symbol] = await Promise.all([
-          fallbackTokenContract.balanceOf(address),
-          fallbackTokenContract.symbol(),
-        ]);
-
-        setGameState((prevState) => ({
-          ...prevState,
-          tokenBalance: ethers.formatUnits(balance, 18),
-          tokenSymbol: symbol,
-        }));
-      } catch (fallbackError) {
-        console.error("Both providers failed:", fallbackError);
-        setGameState((prevState) => ({
-          ...prevState,
-          error: "Failed to fetch token details",
-        }));
-      }
+    } catch (error) {
+      console.error("Error fetching token balance:", error);
+      // Optionally, switch to fallback provider here
     }
-  }, [address, gameState.tokenAddress, isConnected]);
+  }, [address, state.tokenAddress, isConnected]);
 
   useEffect(() => {
     fetchTokenBalance();
@@ -182,278 +77,260 @@ const CreateGameVsComp: React.FC = () => {
 
   const validateInput = (): string | null => {
     if (!isConnected) return "Please connect your wallet";
-    if (!gameState.betAmount || parseFloat(gameState.betAmount) <= 0)
+    if (!state.tokenAmount || parseFloat(state.tokenAmount) <= 0)
       return "Bet amount must be positive";
-    if (parseFloat(gameState.tokenBalance) < parseFloat(gameState.betAmount)) {
-      return `Insufficient ${gameState.tokenSymbol} balance`;
+    if (parseFloat(state.tokenBalance) < parseFloat(state.tokenAmount)) {
+      return `Insufficient ${state.tokenSymbol} balance`;
     }
     return null;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setGameState((prevState) => ({
-      ...prevState,
-      [e.target.name]: e.target.value.replace(/[^0-9.]/g, ""),
-    }));
-  };
-
-  const handleChoiceToggle = () => {
-    setGameState({
-      ...gameState,
-      player1Choice: !gameState.player1Choice,
-    });
-  };
-
-  const handleTokenChange = (event: React.ChangeEvent<{ value: unknown }>) => {
-    const selectedTokenAddress = event.target.value as string;
-    const selectedTokenKey = Object.keys(SUPPORTED_TOKENS).find(
-      (key) =>
-        SUPPORTED_TOKENS[key as keyof typeof SUPPORTED_TOKENS] ===
-        selectedTokenAddress
-    ) as keyof typeof SUPPORTED_TOKENS;
-
-    setGameState((prevState) => ({
-      ...prevState,
-      tokenAddress: selectedTokenAddress,
-      tokenSymbol: selectedTokenKey || "STABLEAI",
-    }));
-  };
-
-  const handleCreateGame = async () => {
+  const handleFlipCoin = async () => {
     const validationError = validateInput();
     if (validationError) {
-      setGameState({
-        ...gameState,
-        error: validationError,
-      });
+      setState((prevState) => ({ ...prevState, error: validationError }));
       return;
     }
 
+    setState((prevState) => ({
+      ...prevState,
+      loading: true,
+      error: null,
+      success: null,
+    }));
+
+    setIsFlipping(true); // Start flip animation
+
     try {
-      setGameState({
-        ...gameState,
-        status: null,
-        error: null,
-        isLoading: true,
-      });
+      await flip(state.tokenAddress, state.tokenAmount, state.face);
 
-      const tokenAddress = gameState.tokenAddress;
-      if (!tokenAddress) throw new Error("Selected token is not supported.");
-
-      await createGame(
-        tokenAddress,
-        gameState.betAmount,
-        gameState.player1Choice
-      );
-
-      setGameState({
-        ...gameState,
-        status: "Game created successfully!",
-        isLoading: false,
-      });
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setGameState({
-          ...gameState,
-          error: "Error creating game: " + err.message,
-          isLoading: false,
+      // Simulate waiting for blockchain result (replace with actual blockchain event listening)
+      setTimeout(() => {
+        const result = Math.random() > 0.5; // Random win/lose for simulation
+        setFlipResult({
+          won: result,
+          result: `You ${result ? "Won" : "Lost"}. Choice: ${
+            state.face ? "Tails" : "Heads"
+          }, Outcome: ${result ? "Tails" : "Heads"}.`,
         });
-      } else {
-        console.error("An unknown error occurred:", err);
-        setGameState({
-          ...gameState,
-          error: "Unknown error occurred",
-          isLoading: false,
-        });
+        setIsFlipping(false);
+        setState((prevState) => ({
+          ...prevState,
+          success: "Flip successful",
+          loading: false,
+        }));
+        fetchTokenBalance();
+      }, 2000); // Simulation delay
+    } catch (error: any) {
+      console.error("Error flipping coin:", error);
+      let errorMessage = "Failed to flip coin";
+      if (error.message?.includes("Token not allowed")) {
+        errorMessage = "This token is not allowed for betting";
       }
+      // ... handle other specific errors
+      setState((prevState) => ({
+        ...prevState,
+        error: errorMessage,
+        loading: false,
+      }));
+      setIsFlipping(false);
     }
   };
 
-  const handleResolve = async (gameId: string) => {
-    try {
-      await resolveGame(Number(gameId));
-      console.log(`Successfully resolved game ${gameId}`);
-
-      // Simulate delay before showing the alert
-      setTimeout(async () => {
-        const resolvedGame = resolvedData?.gameResolveds.find(
-          (game) => game.gameId === gameId
-        );
-        if (resolvedGame) {
-          setAlert({
-            show: true,
-            gameId: resolvedGame.gameId,
-            playerWon: resolvedGame.playerWon === "true",
-            payout: resolvedGame.payout,
-          });
-        }
-      }, 30000); // 5 seconds delay
-    } catch (err) {
-      console.error("Error resolving game:", err);
-      setGameState({
-        ...gameState,
-        error:
-          "Failed to resolve game: " +
-          (err instanceof Error ? err.message : "Unknown error"),
-      });
-    }
+  const handleChoiceClick = () => {
+    setState((prevState) => ({ ...prevState, face: !prevState.face }));
   };
-
-  // Check if the player has created any games
-  const filteredGames = createdGamesData?.gameCreateds.filter(
-    (game) => game.player === address
-  );
-  const games = filteredGames?.map((game) => game.gameId) || [];
 
   return (
-    <div className="flex flex-col justify-center items-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
-        <h1 className="text-3xl font-bold text-primary text-center mb-6">
-          Create Game
-        </h1>
+    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
+      <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
+        {/* Error/Success Notifications */}
+        {state.error && (
+          <div className="fixed top-4 right-4 bg-red-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
+            {state.error}
+          </div>
+        )}
+        {state.success && (
+          <div className="fixed top-4 right-4 bg-green-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
+            {state.success}
+          </div>
+        )}
 
-        {/* Token Selection Dropdown */}
-        <div className="mb-4">
-          <label
-            htmlFor="token"
-            className="block text-sm font-medium text-gray-700 mb-2"
-          >
-            Choose Token
-          </label>
-          <select
-            id="token"
-            className="w-full p-2 border rounded-md bg-white"
-            value={gameState.tokenAddress || ""}
-            onChange={handleTokenChange}
-          >
-            {Object.entries(SUPPORTED_TOKENS).map(
-              ([tokenName, tokenAddress]) => (
-                <option key={tokenName} value={tokenAddress}>
-                  {tokenName}
-                </option>
-              )
-            )}
-          </select>
-        </div>
-
-        {/* Display Token Balance */}
-        <div className="mb-4">
-          <p className="text-gray-600">
-            {gameState.tokenBalance !== "0"
-              ? `Balance: ${gameState.tokenBalance} ${gameState.tokenSymbol}`
-              : "Fetching balance..."}
-          </p>
-        </div>
-
-        {/* Bet Amount Input */}
-        <div className="mb-4">
-          <input
-            type="text"
-            name="betAmount"
-            className="w-full p-2 border rounded-md"
-            placeholder="Enter bet amount"
-            value={gameState.betAmount}
-            onChange={handleChange}
-          />
-        </div>
-
-        {/* Player 1 Choice */}
-        <div className="mb-6">
-          <button
-            className={`w-full p-3 rounded-md ${
-              gameState.player1Choice
-                ? "bg-blue-500 text-white"
-                : "bg-red-500 text-white"
-            }`}
-            onClick={handleChoiceToggle}
-          >
-            {gameState.player1Choice ? (
-              <span className="flex items-center">
-                <Check className="mr-2" /> Heads (Player 1)
-              </span>
-            ) : (
-              <span className="flex items-center">
-                <XCircle className="mr-2" /> Tails (Player 1)
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Conditionally render Bet or Flip */}
-        {games.length > 0 ? (
-          // Flip Button for resolving the game
-          <button
-            className="w-full p-3 bg-red-500 text-white rounded-md"
-            onClick={() => handleResolve(games[0])} // Using the first game to resolve
-          >
-            Flip
-          </button>
-        ) : // Bet Button for creating a game
-        gameState.isLoading ? (
-          <div className="flex justify-center mb-4">
-            <div className="spinner-border" role="status">
-              <span className="sr-only">Loading...</span>
+        {/* Flipping Animation */}
+        {isFlipping && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-10 rounded-lg shadow-lg">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
+              <p className="mt-4 text-center">Flipping Coin...</p>
             </div>
           </div>
-        ) : (
-          <button
-            className="w-full p-3 bg-blue-500 text-white rounded-md"
-            onClick={handleCreateGame}
-            disabled={
-              gameState.isLoading ||
-              !gameState.tokenAddress ||
-              !gameState.betAmount
-            }
-          >
-            Bet
-          </button>
         )}
 
-        {/* Status and Error Messages */}
-        {gameState.status && (
-          <div className="mt-4 p-3 bg-green-100 text-green-700 rounded-md">
-            {gameState.status}
+        {/* Flip Result */}
+        {flipResult.won !== null && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-10 rounded-lg shadow-lg">
+              <h2 className="text-lg font-bold mb-2">
+                {flipResult.won ? "Congratulations!" : "Better luck next time!"}
+              </h2>
+              <p>{flipResult.result}</p>
+              <button
+                onClick={() => setFlipResult({ won: null, result: null })}
+                className="mt-4 bg-purple-500 text-white px-4 py-2 rounded"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
 
-        {gameState.error && (
-          <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-md">
-            {gameState.error}
-          </div>
-        )}
-      </div>
+        <div className="w-full bg-purple-950/70 backdrop-blur-sm border border-purple-800/30 rounded-lg overflow-hidden shadow-xl">
+          <div className="p-6 bg-purple-950/40 text-purple-100 backdrop-blur-sm">
+            <div className="space-y-4">
+              <div className="flex justify-center items-center w-full h-full">
+                <div
+                  className={`w-24 h-24 rounded-full bg-gradient-to-br from-purple-600 to-purple-800 relative ${
+                    isFlipping ? "animate-spin" : ""
+                  }`}
+                  style={{
+                    perspective: "1000px",
+                    transformStyle: "preserve-3d",
+                  }}
+                  onClick={handleChoiceClick}
+                >
+                  <div
+                    className="absolute w-full h-full backface-hidden bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center shadow-lg"
+                    style={{
+                      transform:
+                        state.face === false
+                          ? "rotateY(180deg)"
+                          : "rotateY(0deg)",
+                      transition: "transform 0.6s",
+                      backfaceVisibility: "hidden",
+                    }}
+                  >
+                    <span className="text-lg text-purple-100 font-bold">H</span>
+                  </div>
+                  <div
+                    className="absolute w-full h-full backface-hidden bg-gradient-to-br from-purple-700 to-purple-900 rounded-full flex items-center justify-center shadow-lg"
+                    style={{
+                      transform:
+                        state.face === true
+                          ? "rotateY(180deg)"
+                          : "rotateY(0deg)",
+                      transition: "transform 0.6s",
+                      backfaceVisibility: "hidden",
+                    }}
+                  >
+                    <span className="text-lg text-purple-100 font-bold">T</span>
+                  </div>
+                </div>
+              </div>
 
-      {/* Alert Pop-Up */}
-      {alert.show && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
-            <h2 className="text-2xl font-semibold text-center">
-              Game {alert.gameId} Result
-            </h2>
-            <p className="text-center mt-4">
-              {alert.playerWon ? (
-                <span className="text-green-600">You Won! </span>
-              ) : (
-                <span className="text-red-600">You Lost! </span>
-              )}
-              <br />
-              Payout: {alert.payout}
-            </p>
-            <button
-              onClick={() => setAlert({ ...alert, show: false })}
-              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md w-full"
-            >
-              Close
-            </button>
+              <div className="flex flex-col items-start space-y-1">
+                <p className="text-purple-200">
+                  {state.tokenSymbol} balance:{" "}
+                  {parseFloat(state.tokenBalance).toFixed(2)}
+                </p>
+                <div className="text-purple-200">
+                  <p>Choice: {state.face ? "Tails" : "Heads"}</p>
+                </div>
+
+                {/* ... rest of your input fields and button */}
+              </div>
+
+              {/* Token Selection and Bet Amount */}
+              <div className="flex flex-col w-full">
+                <label
+                  htmlFor="token"
+                  className="block text-md font-medium text-purple-200 mb-1"
+                >
+                  Select Token
+                </label>
+                <select
+                  id="token"
+                  value={state.tokenAddress}
+                  onChange={(e) =>
+                    setState((prev) => ({
+                      ...prev,
+                      tokenAddress: e.target.value,
+                    }))
+                  }
+                  className="w-full text-gray-700 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  disabled={state.loading || state.isApproving}
+                >
+                  {Object.entries(SUPPORTED_TOKENS).map(([key, value]) => (
+                    <option key={key} value={value}>
+                      {key}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <label className="block text-purple-200">
+                Bet amount ({state.tokenAmount}${state.tokenSymbol})
+              </label>
+              <input
+                id="betAmount"
+                type="number"
+                step="0.001"
+                min="0"
+                placeholder="0.00"
+                value={state.tokenAmount}
+                onChange={(e) =>
+                  setState((prev) => ({ ...prev, tokenAmount: e.target.value }))
+                }
+                className="w-full bg-purple-900/50 border border-purple-700/30 text-purple-100 rounded-md p-2 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-600/50"
+                disabled={state.loading || state.isApproving}
+              />
+
+              <button
+                className={`w-full py-3 flex items-center justify-center ${
+                  state.loading || state.isApproving
+                    ? "bg-purple-600/50 cursor-not-allowed"
+                    : "bg-gradient-to-r from-purple-700 to-purple-800 hover:from-purple-600 hover:to-purple-700"
+                } text-white rounded-md transition duration-200 font-semibold shadow-lg`}
+                onClick={handleFlipCoin}
+                disabled={state.loading || state.isApproving}
+              >
+                {state.loading || state.isApproving ? (
+                  <div className="flex items-center space-x-2">
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>
+                      {state.isApproving
+                        ? "Approving Token..."
+                        : "Processing..."}
+                    </span>
+                  </div>
+                ) : (
+                  "Flip Coin"
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      )}
-
-      <div className="w-full pt-4">
-        <ResolvedGames />
       </div>
     </div>
   );
 };
 
-export default CreateGameVsComp;
+export default FlipCoin;
