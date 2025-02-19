@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { SUPPORTED_TOKENS } from "../utils/contract";
 import { useAppKitAccount } from "@reown/appkit/react";
-import {
-  flip,
-  publicProvider,
-  fallbackProvider,
-} from "../utils/contractfunction";
+import { flip, publicProvider } from "../utils/contractfunction";
 import { ethers } from "ethers";
 
 interface FlipCoin {

@@ -34,26 +34,6 @@ async function setupContractWithSigner() {
   }
 }
 
-// Function to handle contract errors with additional info
-interface ContractError extends Error {
-  code?: string;
-  transaction?: any;
-  revert?: string;
-}
-
-function handleContractError(error: ContractError) {
-  if (error.code === "CALL_EXCEPTION") {
-    console.error("Transaction data:", error.transaction);
-    if (error.revert) {
-      console.error("Revert reason:", error.revert);
-    }
-  } else if (error.code === "ACTION_REJECTED") {
-    console.error("User rejected the action:", error);
-  } else {
-    console.error("Unexpected error:", error);
-  }
-}
-
 // Function to create a new game
 // Function to create a new game
 
