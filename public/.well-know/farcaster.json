@@ -12,6 +12,7 @@
     "imageUrl": "https://flip-it-steel.vercel.app/image.png",
     "buttonTitle": "Check this out",
     "splashImageUrl": "https://flip-it-steel.vercel.app/splash.png",
-    "splashBackgroundColor": "#eeccff"
+    "splashBackgroundColor": "#eeccff",
+    "webhookUrl": "https://flip-it-steel.vercel.app/api/webhook"
   }
 }
