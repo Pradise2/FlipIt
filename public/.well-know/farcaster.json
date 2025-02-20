@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjMyMDI2NCwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDFGMkE1MkYwZjlDZDYwZGY4RDAwNTdjNGE1YTEwRUFlNjQyNjNCNDgifQ",
+    "payload": "eyJkb21haW4iOiJmbGlwLWl0LXN0ZWVsLXZlcmNlbC5hcHAifQ",
+    "signature": "MHhjZGVmYjcxNTNhYWQ4NTM3N2FlYWRlM2VmNmQ0OGY1NDNhMjRiMjRiMjE4MDI5NzU0OTdhYWI3MTA4NDNiOTI3NWJlOGViM2QzN2ZjMDVkMjJlNzljNjM4ZGZiNWUzZjJlZjA4MDE2YzFlZDhlOWUwZmMyYTJmN2M2MTM3MDdhZjFj"
+  },
+  "frame": {
+    "version": "1",
+    "name": "flipit",
+    "iconUrl": "https://flip-it-steel-vercel.app/icon.png",
+    "homeUrl": "https://flip-it-steel-vercel.app",
+    "imageUrl": "https://flip-it-steel-vercel.app/image.png",
+    "buttonTitle": "Check this out",
+    "splashImageUrl": "https://flip-it-steel-vercel.app/splash.png",
+    "splashBackgroundColor": "#eeccff"
+    
+  }
+}
