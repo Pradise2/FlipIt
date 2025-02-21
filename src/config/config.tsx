@@ -16,7 +16,7 @@ const WC_PARAMS = {
   projectId: import.meta.env.VITE_PROJECT_ID, // Replace with your actual project ID
   chainId: 8453, // Example: Ethereum Mainnet (1)
   rpc: {
-    8453: "https://base-mainnet.infura.io/v3/b17a040a14bc48cfb3928a73d26f3617", // Example RPC URL
+    8453: "https://base-mainnet.g.alchemy.com/v2/os5WiDtgiyV3YXhsy2P-Cc0IX5IwFbYy", // Example RPC URL
   },
 }
 
