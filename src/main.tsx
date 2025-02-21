@@ -1,25 +1,23 @@
-
-import FrameSDK from '@farcaster/frame-sdk'
-import { createAppKit } from "@reown/appkit/react";
-import { WagmiProvider } from "wagmi";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { projectId, metadata, networks, wagmiAdapter } from "./config/config";
-import { StrictMode , useEffect} from 'react';
+import FrameSDK from '@farcaster/frame-sdk';
+import { createAppKit } from '@reown/appkit/react';
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { projectId, metadata, networks, wagmiAdapter } from './config/config';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
 
-function FarcasterFrameProvider({ children }: PropsWithChildren) {
+function FarcasterFrameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const init = async () => {
-      
-        FrameSDK.actions.ready()
-      }
-    
-    init()
-  }, [])
+      FrameSDK.actions.ready();
+    };
 
-  return <>{children}</>
+    init();
+  }, []);
+
+  return <>{children}</>;
 }
 
 // Create a new query client
@@ -43,9 +41,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <WagmiProvider config={wagmiAdapter.wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <FarcasterFrameProvider/>
+        <FarcasterFrameProvider>
           <App />
-        <FarcasterFrameProvider/>
+        </FarcasterFrameProvider>
       </QueryClientProvider>
     </WagmiProvider>
   </StrictMode>
