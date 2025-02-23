@@ -8,22 +8,17 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
 
-import { wagmiConfig } from './config/config'
-
-
 function FarcasterFrameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    
-      const init = async () => {
-        FrameSDK.actions.ready();
-      };
-  
-      init();
-    }, []);
-  
-    return <>{children}</>;
-  }
-  
+    const init = async () => {
+      FrameSDK.actions.ready();
+    };
+
+    init();
+  }, []);
+
+  return <>{children}</>;
+}
 
 // Create a new query client
 const queryClient = new QueryClient();
@@ -44,8 +39,8 @@ createAppKit({
 // Render the app with WagmiProvider and QueryClientProvider
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider  client={queryClient}>
+    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
         <FarcasterFrameProvider>
           <App />
         </FarcasterFrameProvider>
