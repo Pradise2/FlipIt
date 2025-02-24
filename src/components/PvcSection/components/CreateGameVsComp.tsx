@@ -44,8 +44,9 @@ const FlipCoin = () => {
 
   async function setupContract() {
     if (!isConnected )
-      throw new Error("User is disconnected");
-    if (!walletProvider) throw new Error("Wallet provider not found");
+      throw new Error("User is disconnected", isConnected);
+   
+
     const ethersProvider = new BrowserProvider(walletProvider as any);
     const signer = await ethersProvider.getSigner();
     const userAddress = await signer.getAddress();
