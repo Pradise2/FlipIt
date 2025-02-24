@@ -165,7 +165,7 @@ const FlipCoin = () => {
   };
 
   const fetchTokenBalance = useCallback(async () => {
-    if (!address || !state.tokenAddress || !isConnected) return;
+    if (!address || !state.tokenAddress ) return;
 
     const tokenAbi = [
       "function balanceOf(address owner) view returns (uint256)",
@@ -191,7 +191,7 @@ const FlipCoin = () => {
     } catch (error) {
       console.error("Error fetching token balance:", error);
     }
-  }, [address, state.tokenAddress, isConnected]);
+  }, [address, state.tokenAddress]);
 
   useEffect(() => {
     fetchTokenBalance();
