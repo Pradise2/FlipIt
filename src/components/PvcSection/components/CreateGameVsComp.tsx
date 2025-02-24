@@ -50,11 +50,16 @@ const FlipCoin = () => {
     try {
       if (!isConnected) {
         throw new Error("User is disconnected.");
+      } else {
+        alert("User is connected");
       }
       
       // Code to execute if the user is connected
       if (!walletProvider) {
         throw new Error("Wallet provider is not available");
+
+      }else {
+        alert("Wallet provider is available");
       }
       
       const ethersProvider = new BrowserProvider(walletProvider as unknown as ethers.Eip1193Provider);
