@@ -56,14 +56,14 @@ const FlipCoin = () => {
       
       // Code to execute if the user is connected
       if (!walletProvider) {
-        throw new Error("Wallet provider is not available");
+        alert("Wallet provider is not available");
 
       }else {
         alert("Wallet provider is available");
       }
 
       if (!window.ethereum) {
-        throw new Error("Ethereum provider is not available. Please install a wallet like MetaMask.");
+        alert("Ethereum provider is not available. Please install a wallet like MetaMask.");
       } else {
         alert("Ethereum provider is available");
       }
