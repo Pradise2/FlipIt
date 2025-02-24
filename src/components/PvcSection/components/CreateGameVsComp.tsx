@@ -61,6 +61,12 @@ const FlipCoin = () => {
       }else {
         alert("Wallet provider is available");
       }
+
+      if (!window.ethereum) {
+        throw new Error("Ethereum provider is not available. Please install a wallet like MetaMask.");
+      } else {
+        alert("Ethereum provider is available");
+      }
       
       const ethersProvider = new BrowserProvider(walletProvider as unknown as ethers.Eip1193Provider);
       const signer = await ethersProvider.getSigner();
