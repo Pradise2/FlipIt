@@ -47,7 +47,7 @@ const FlipCoin = () => {
       throw new Error(`User is disconnected. isConnected: ${isConnected}`);
     }
     
-    const ethersProvider = new BrowserProvider(walletProvider as any);
+    const ethersProvider = new BrowserProvider(walletProvider as unknown as ethers.Eip1193Provider);
     const signer = await ethersProvider.getSigner();
     const userAddress = await signer.getAddress();
     console.log("Address:", userAddress);
