@@ -52,7 +52,7 @@ const FlipCoin = () => {
         throw new Error("User is disconnected.");
       } else {
         // Code to execute if the user is connected
-        console.log("User is connected. Proceeding with contract setup...");
+        throw new Error("User is connected. Proceeding with contract setup...");
         // You can add further logic here, such as setting up a contract, etc.
       }
       
