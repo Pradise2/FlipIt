@@ -43,18 +43,25 @@ const FlipCoin = () => {
   }>({ won: null, result: null });
 
   async function setupContract() {
-    if (!isConnected) {
-      throw new Error(`User is disconnected. isConnected: ${isConnected}`);
-    }
-    
+    try {
+      if (!isConnected) {
+        throw new Error(`User is disconnected. isConnected: ${isConnected}`);
+      }
+  
+      if (!walletProvider) {
+        throw new Error("Wallet provider is not available");
+      }
     const ethersProvider = new BrowserProvider(walletProvider as unknown as ethers.Eip1193Provider);
     const signer = await ethersProvider.getSigner();
     const userAddress = await signer.getAddress();
     console.log("Address:", userAddress);
     const contract = new ethers.Contract(ADDRESS, ABI, signer);
     return { signer, contract };
+  } catch (error) {
+    console.error("Error setting up contract:", error);
+    throw error;  // Rethrow or handle as needed
   }
-
+}
   const flip = async (
     tokenAddress: string,
     tokenAmount: string,
