@@ -45,7 +45,7 @@ const FlipCoin = () => {
     won: boolean | null;
     result: string | null;
   }>({ won: null, result: null });
-  
+
   async function setupContract() {
     try {
       if (!isConnected) {
@@ -60,8 +60,8 @@ const FlipCoin = () => {
       const ethersProvider = new BrowserProvider(walletProvider as unknown as ethers.Eip1193Provider);
       const signer = await ethersProvider.getSigner();
       const userAddress = await signer.getAddress();
-      console.log("Address:", userAddress);
-      
+      alert(`Address: ${userAddress}`);
+
       const contract = new ethers.Contract(ADDRESS, ABI, signer);
       return { signer, contract };
     } catch (error) {
