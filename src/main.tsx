@@ -7,6 +7,7 @@ import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { wagmiConfig } from './config/config';
 
 function FarcasterFrameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -39,7 +40,7 @@ createAppKit({
 // Render the app with WagmiProvider and QueryClientProvider
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+    <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <FarcasterFrameProvider>
           <App />
