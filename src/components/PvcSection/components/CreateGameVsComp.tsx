@@ -4,6 +4,8 @@ import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 import { publicProvider, getGameOutcome } from "../utils/contractfunction";
 import { ethers } from "ethers";
 import { BrowserProvider } from "ethers";
+import { useAccount } from 'wagmi';
+
 
 import { ABI, ADDRESS } from "../utils/contract";
 
@@ -31,9 +33,11 @@ const FlipCoin = () => {
     tokenSymbol: "STABLEAI",
     isApproving: false,
   });
+  const { isConnected } = useAccount();
+
 
   const [requestId, setRequestId] = useState<string | null>(null);
-  const { address, isConnected } = useAppKitAccount();
+  const { address} = useAppKitAccount();
   const { walletProvider } = useAppKitProvider("eip155");
 
   const [isFlipping, setIsFlipping] = useState(false);
@@ -45,10 +49,18 @@ const FlipCoin = () => {
   async function setupContract() {
     try {
       if (!isConnected) {
-        throw new Error(`User is disconnected. isConnected`);
+        throw new Error("User is disconnected.");
+      } else {
+        // Code to execute if the user is connected
+        console.log("User is connected. Proceeding with contract setup...");
+        // You can add further logic here, such as setting up a contract, etc.
       }
+      
   
-    
+      if (!walletProvider) {
+        throw new Error("Wallet provider is not available");
+      }
+
     const ethersProvider = new BrowserProvider(walletProvider as unknown as ethers.Eip1193Provider);
     const signer = await ethersProvider.getSigner();
     const userAddress = await signer.getAddress();
