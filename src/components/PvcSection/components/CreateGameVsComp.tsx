@@ -57,10 +57,6 @@ const FlipCoin = () => {
       }
       
   
-      if (!walletProvider) {
-        throw new Error("Wallet provider is not available");
-      }
-
     const ethersProvider = new BrowserProvider(walletProvider as unknown as ethers.Eip1193Provider);
     const signer = await ethersProvider.getSigner();
     const userAddress = await signer.getAddress();
