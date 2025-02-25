@@ -94,12 +94,12 @@ const FlipCoin = () => {
   });
 
   // Approval
-  const { writeContract: writeApproval, data: approvalHash, isPending: isApprovalPending } = useWriteContract();
+  const { writeContract: writeApproval, data: approvalHash } = useWriteContract();
   const { isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({ hash: approvalHash });
 
   // Flip
   const { writeContract: writeFlip, data: flipHash, isPending: isFlipPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: flipHash });
+  const {  isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: flipHash });
 
   // Bet status
   const { data: betStatus } = useReadContract({

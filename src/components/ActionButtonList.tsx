@@ -1,15 +1,8 @@
-import { useDisconnect, useAppKit, useAppKitNetwork  } from '@reown/appkit/react'
-import { networks } from '../config/config'
 
-export const ActionButtonList = () => {
-    const { disconnect } = useDisconnect();
-    const { open } = useAppKit();
-    const { switchNetwork } = useAppKitNetwork();
+const ActionButtonList = () => {
   return (
-    <div >
-        <button onClick={() => open()}>Open</button>
-        <button onClick={() => disconnect()}>Disconnect</button>
-        <button onClick={() => switchNetwork(networks[1]) }>Switch</button>
-    </div>
+    <div>ActionButtonList</div>
   )
 }
+
+export default ActionButtonList
