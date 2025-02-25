@@ -195,7 +195,7 @@ const FlipCoin = () => {
     } catch (error) {
       console.error("Flip Error:", error);
       setState(prev => ({ ...prev, error: error instanceof Error ? error.message : "Failed to flip", loading: false, isApproving: false }));
-      setIsFlipping(false);
+      setIsFlipping(true);
     }
   };
 
