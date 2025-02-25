@@ -4,11 +4,9 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
-  useAccount,
-  usePublicClient
+  useAccount
 } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { parseEventLogs } from 'viem';
 
 interface FlipCoinState {
   tokenAddress: string;
@@ -43,11 +41,6 @@ interface GameOutcome {
   resultDescription: string;
 }
 
-interface BetSentEventArgs {
-  requestId: bigint;
-  numWords: number;
-}
-
 const FlipCoin = () => {
   const [state, setState] = useState<FlipCoinState>({
     face: false,
@@ -71,14 +64,12 @@ const FlipCoin = () => {
   }>({ won: null, result: null });
 
   const decimals = 18;
-  const publicClient = usePublicClient();
 
+  // Token contract interactions
   const { 
     data: balanceData, 
     refetch: refetchBalance, 
-    isFetching: isBalanceFetching,
-    error: balanceError,
-    isError: isBalanceError 
+    isFetching: isBalanceFetching 
   } = useReadContract({
     address: state.tokenAddress as `0x${string}`,
     abi: [
@@ -93,9 +84,7 @@ const FlipCoin = () => {
   const { 
     data: symbolData, 
     refetch: refetchSymbol, 
-    isFetching: isSymbolFetching,
-    error: symbolError,
-    isError: isSymbolError 
+    isFetching: isSymbolFetching 
   } = useReadContract({
     address: state.tokenAddress as `0x${string}`,
     abi: [
@@ -104,68 +93,49 @@ const FlipCoin = () => {
     functionName: "symbol",
   });
 
+  // Approval
   const { writeContract: writeApproval, data: approvalHash } = useWriteContract();
   const { isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({ hash: approvalHash });
 
+  // Flip
   const { writeContract: writeFlip, data: flipHash, isPending: isFlipPending } = useWriteContract();
-  const { isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: flipHash });
+  const {  isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: flipHash });
 
-  const { 
-    data: betStatus, 
-    refetch: refetchBetStatus,
-  } = useReadContract({
+  // Bet status
+  const { data: betStatus } = useReadContract({
     address: ADDRESS,
     abi: ABI,
     functionName: "getBetStatus",
     args: [requestId ? BigInt(requestId) : BigInt(0)],
     query: { enabled: !!requestId },
-  }) as { data: BetStatus | undefined, refetch: () => void };
+  }) as { data: BetStatus | undefined };
 
-  const { 
-    data: gameOutcome, 
-    refetch: refetchGameOutcome,
-  } = useReadContract({
+  // Game outcome
+  const { data: gameOutcome } = useReadContract({
     address: ADDRESS,
     abi: ABI,
     functionName: "getGameOutcome",
     args: [requestId ? BigInt(requestId) : BigInt(0)],
     query: { enabled: !!requestId && !!betStatus?.fulfilled },
-  }) as { data: GameOutcome | undefined, refetch: () => void };
+  }) as { data: GameOutcome | undefined };
 
   const fetchTokenBalance = useCallback(() => {
     console.log("Fetching Token Balance...");
-    console.log("Connected Address:", address);
-    console.log("Token Address:", state.tokenAddress);
     console.log("Current balanceData:", balanceData?.toString());
     console.log("Current symbolData:", symbolData);
-    if (isBalanceError) console.error("Balance Fetch Error:", balanceError);
-    if (isSymbolError) {
-      console.error("Symbol Fetch Error:", symbolError);
-      console.log("Falling back to token name from SUPPORTED_TOKENS");
-    }
-
-    const fallbackSymbol = Object.keys(SUPPORTED_TOKENS).find(
-      key => SUPPORTED_TOKENS[key as keyof typeof SUPPORTED_TOKENS] === state.tokenAddress
-    ) || "UNKNOWN";
-
-    if (balanceData) {
+    if (balanceData && symbolData) {
       setState(prev => ({
         ...prev,
         tokenBalance: formatUnits(balanceData as bigint, decimals),
-        tokenSymbol: symbolData || fallbackSymbol,
+        tokenSymbol: symbolData as string,
         isBalanceLoading: false,
       }));
       console.log("Updated State - Balance:", formatUnits(balanceData as bigint, decimals));
-      console.log("Updated State - Symbol:", symbolData || fallbackSymbol);
-    } else if (isBalanceError) {
-      setState(prev => ({
-        ...prev,
-        error: "Failed to fetch token balance",
-        isBalanceLoading: false,
-      }));
+      console.log("Updated State - Symbol:", symbolData);
     }
-  }, [balanceData, symbolData, address, balanceError, isBalanceError, symbolError, isSymbolError, state.tokenAddress]);
+  }, [balanceData, symbolData]);
 
+  // Update balance and symbol when tokenAddress changes
   useEffect(() => {
     console.log("Token Address Changed:", state.tokenAddress);
     setState(prev => ({ ...prev, isBalanceLoading: true }));
@@ -173,12 +143,14 @@ const FlipCoin = () => {
     refetchSymbol();
   }, [state.tokenAddress, refetchBalance, refetchSymbol]);
 
+  // Sync state with fetched data
   useEffect(() => {
     if (!isBalanceFetching && !isSymbolFetching) {
       fetchTokenBalance();
     }
   }, [isBalanceFetching, isSymbolFetching, fetchTokenBalance]);
 
+  // Update balance after flip completes
   useEffect(() => {
     if (isConfirmed && flipHash) {
       console.log("Flip Confirmed, Refetching Balance...");
@@ -186,77 +158,6 @@ const FlipCoin = () => {
       refetchBalance();
     }
   }, [isConfirmed, flipHash, refetchBalance]);
-
-  useEffect(() => {
-    const getRequestId = async () => {
-      if (flipHash && isConfirmed && !requestId) {
-        console.log("Parsing Flip Transaction Receipt...");
-        if (!publicClient) {
-          console.error("Public client is undefined");
-          setState(prev => ({ ...prev, error: "Network client unavailable", loading: false }));
-          setIsFlipping(false);
-          return;
-        }
-        try {
-          const receipt = await publicClient.getTransactionReceipt({ hash: flipHash });
-          const logs = parseEventLogs({
-            abi: ABI,
-            eventName: "BetSent",
-            logs: receipt.logs,
-          }) as unknown as { args: BetSentEventArgs }[];
-          const betSentLog = logs[0];
-          const newRequestId = betSentLog?.args?.requestId?.toString();
-          console.log("Parsed Request ID:", newRequestId);
-          if (newRequestId) {
-            setRequestId(newRequestId);
-            setState(prev => ({ ...prev, loading: false }));
-          } else {
-            console.error("Failed to parse requestId from BetSent event");
-            setState(prev => ({ ...prev, error: "Failed to get bet request ID", loading: false }));
-            setIsFlipping(false);
-          }
-        } catch (error) {
-          console.error("Error parsing transaction receipt:", error);
-          setState(prev => ({ ...prev, error: "Failed to parse transaction", loading: false }));
-          setIsFlipping(false);
-        }
-      }
-    };
-    getRequestId();
-  }, [flipHash, isConfirmed, publicClient, requestId]);
-
-  useEffect(() => {
-    if (requestId) {
-      console.log("Monitoring Bet Status with Request ID:", requestId);
-      const checkBetStatus = async () => {
-        await refetchBetStatus();
-        await refetchGameOutcome();
-        console.log("Refetched Bet Status:", betStatus);
-        console.log("Refetched Game Outcome:", gameOutcome);
-
-        if (betStatus?.fulfilled && gameOutcome) {
-          console.log("Game Completed - Setting Result...");
-          setFlipResult({
-            won: gameOutcome.playerWon,
-            result: `You ${gameOutcome.playerWon ? "Won" : "Lost"}. Choice: ${gameOutcome.playerChoice ? "Tails" : "Heads"}, Outcome: ${gameOutcome.outcome ? "Tails" : "Heads"}`,
-          });
-          setState(prev => ({ 
-            ...prev, 
-            success: "Game completed", 
-            loading: false 
-          }));
-          setIsFlipping(false);
-          fetchTokenBalance();
-        } else {
-          console.log("Bet not yet fulfilled or outcome not available");
-        }
-      };
-      checkBetStatus();
-
-      const interval = setInterval(checkBetStatus, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [requestId, betStatus, gameOutcome, refetchBetStatus, refetchGameOutcome, fetchTokenBalance]);
 
   const validateInput = (): string | null => {
     if (!isConnected || !address) return "Please connect your wallet";
@@ -311,6 +212,30 @@ const FlipCoin = () => {
       setState(prev => ({ ...prev, isApproving: false }));
     }
   }, [approvalConfirmed, isFlipPending, flipHash, state.face, state.tokenAmount, state.tokenAddress]);
+
+  useEffect(() => {
+    if (isConfirmed && flipHash) {
+      console.log("Flip Transaction Confirmed:", flipHash);
+      setState(prev => ({ ...prev, loading: false }));
+      setRequestId("1"); // Placeholder
+    }
+  }, [isConfirmed, flipHash]);
+
+  useEffect(() => {
+    if (betStatus && requestId) {
+      console.log("Bet Status:", betStatus);
+      if (betStatus.fulfilled && gameOutcome) {
+        console.log("Game Outcome:", gameOutcome);
+        setFlipResult({
+          won: gameOutcome.playerWon,
+          result: `You ${gameOutcome.playerWon ? "Won" : "Lost"}. Choice: ${gameOutcome.playerChoice ? "Tails" : "Heads"}, Outcome: ${gameOutcome.outcome ? "Tails" : "Heads"}`,
+        });
+        setState(prev => ({ ...prev, success: "Game completed", loading: false }));
+        setIsFlipping(false);
+        fetchTokenBalance();
+      }
+    }
+  }, [betStatus, gameOutcome, requestId, fetchTokenBalance]);
 
   const handleChoiceClick = () => {
     console.log("Choice toggled from", state.face ? "Tails" : "Heads", "to", !state.face ? "Tails" : "Heads");
