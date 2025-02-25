@@ -99,7 +99,7 @@ const FlipCoin = () => {
 
   // Flip
   const { writeContract: writeFlip, data: flipHash, isPending: isFlipPending } = useWriteContract();
-  const { isSuccess: isConfirmed, data: flipReceipt } = useWaitForTransactionReceipt({ hash: flipHash });
+  const {  isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: flipHash });
 
   // Bet status
   const { data: betStatus } = useReadContract({
@@ -152,44 +152,12 @@ const FlipCoin = () => {
 
   // Update balance after flip completes
   useEffect(() => {
-    if (isConfirmed && flipHash && flipReceipt) {
+    if (isConfirmed && flipHash) {
       console.log("Flip Confirmed, Refetching Balance...");
       setState(prev => ({ ...prev, loading: false, isBalanceLoading: true }));
       refetchBalance();
-
-        // Parse the transaction receipt logs to find the requestId
-        const eventABI = ABI.find(
-          (item) => item.type === "event" && item.name === "FlipRequested" // Adjust event name as per your contract
-        );
-        if (eventABI) {
-          const logs = flipReceipt.logs;
-          for (const log of logs) {
-            try {
-              const decodedLog = decodeEventLog({
-                abi: [eventABI],
-                data: log.data,
-                topics: log.topics,
-              }) as {
-                eventName: string;
-                args: { requestId?: bigint } | undefined; // Narrow down args type
-              };
-  
-              // Check if args and requestId exist
-              if (decodedLog.args && "requestId" in decodedLog.args && decodedLog.args.requestId !== undefined) {
-                const requestIdFromEvent = decodedLog.args.requestId;
-                setRequestId(requestIdFromEvent.toString());
-                console.log("Request ID set from event:", requestIdFromEvent.toString());
-                break;
-              }
-            } catch (error) {
-              console.log("Log parsing failed for log:", log, error);
-            }
-          }
-        } else {
-          console.error("FlipRequested event not found in ABI");
-        }
-      }
-    }, [isConfirmed, flipHash, flipReceipt, refetchBalance]);
+    }
+  }, [isConfirmed, flipHash, refetchBalance]);
 
   const validateInput = (): string | null => {
     if (!isConnected || !address) return "Please connect your wallet";
@@ -277,8 +245,7 @@ const FlipCoin = () => {
   const resetFlipState = () => {
     setFlipResult({ won: null, result: null });
     setState(prev => ({ ...prev, success: null, error: null }));
-    setIsFlipping(false);
-    setRequestId(null); // Reset requestId for the next flip
+    setIsFlipping(false); // Ensure flipping is reset
   };
 
   return (
