@@ -242,6 +242,12 @@ const FlipCoin = () => {
     setState(prev => ({ ...prev, face: !prev.face }));
   };
 
+  const resetFlipState = () => {
+    setFlipResult({ won: null, result: null });
+    setState(prev => ({ ...prev, success: null, error: null }));
+    setIsFlipping(false); // Ensure flipping is reset
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
@@ -275,11 +281,7 @@ const FlipCoin = () => {
               </h2>
               <p>{flipResult.result}</p>
               <button
-                onClick={() => {
-                  console.log("Closing result modal");
-                  setFlipResult({ won: null, result: null });
-                  setState(prev => ({ ...prev, success: null }));
-                }}
+               onClick={resetFlipState}
                 className="mt-4 bg-purple-500 text-white px-4 py-2 rounded"
               >
                 Close
