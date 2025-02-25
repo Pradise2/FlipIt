@@ -1,6 +1,4 @@
-import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { base } from "@reown/appkit/networks";
-import type { AppKitNetwork } from "@reown/appkit/networks";
+import { base } from 'wagmi/chains'
 import { QueryClient } from "@tanstack/react-query";
 import {
   coinbaseWallet,
@@ -53,25 +51,5 @@ export const queryClient = new QueryClient();
 // Get projectId from https://cloud.reown.com
 export const projectId = import.meta.env.VITE_PROJECT_ID;
 
-if (!projectId) {
-  throw new Error("Project ID is not defined");
-}
 
-export const metadata = {
-  name: "Flip-it",
-  description: "A coin flip game",
-  url: "https://flip-it-three.vercel.app", // origin must match your domain & subdomain
-  icons: ["https://flip-it-three.vercel.app/icon.png"],
-  email: "",
-};
 
-// for custom networks visit -> https://docs.reown.com/appkit/react/core/custom-networks
-export const networks = [base] as [AppKitNetwork, ...AppKitNetwork[]];
-
-//Set up the Wagmi Adapter (Config)
-export const wagmiAdapter = new WagmiAdapter({
-  projectId,
-  networks,
-});
-
-export const config = wagmiAdapter.wagmiConfig;
