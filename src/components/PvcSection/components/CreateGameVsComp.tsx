@@ -6,7 +6,7 @@ import {
   useReadContract,
   useAccount
 } from 'wagmi';
-import { parseUnits, formatUnits, decodeEventLog } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 
 interface FlipCoinState {
   tokenAddress: string;
