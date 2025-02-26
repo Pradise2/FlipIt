@@ -5,7 +5,7 @@ import {
   useWaitForTransactionReceipt,
   useReadContract,
   useAccount,  useEnsName,
- useWatchContractEvent 
+   useWatchContractEvent 
 } from 'wagmi';
 
 import { parseUnits, formatUnits }  from 'viem';
@@ -32,24 +32,6 @@ interface GameOutcome {
   betAmount: bigint;
   potentialPayout: bigint;
   resultDescription: string;
-}
-
-interface BetStatus {
-  paid: bigint;
-  fulfilled: boolean;
-  bet: boolean;
-  randomWords: bigint[];
-  status: string;
-  rolled: bigint;
-  userWon: boolean;
-}
-
-// Define the BetSent event log type
-interface BetSentLog {
-  args: {
-    requestId: bigint;
-    numWords: number;
-  };
 }
 
 const FlipCoin = () => {
