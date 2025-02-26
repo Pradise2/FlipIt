@@ -4,8 +4,8 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
-  useAccount,  useEnsAvatar, useEnsName,
-  useConnect, useWatchContractEvent 
+  useAccount,  useEnsName,
+ useWatchContractEvent 
 } from 'wagmi';
 
 import { parseUnits, formatUnits }  from 'viem';
@@ -34,6 +34,24 @@ interface GameOutcome {
   resultDescription: string;
 }
 
+interface BetStatus {
+  paid: bigint;
+  fulfilled: boolean;
+  bet: boolean;
+  randomWords: bigint[];
+  status: string;
+  rolled: bigint;
+  userWon: boolean;
+}
+
+// Define the BetSent event log type
+interface BetSentLog {
+  args: {
+    requestId: bigint;
+    numWords: number;
+  };
+}
+
 const FlipCoin = () => {
   const [state, setState] = useState<FlipCoinState>({
     face: false,
@@ -60,8 +78,7 @@ const FlipCoin = () => {
   }>({ won: null, result: null });
   
   const { data: ensName } = useEnsName({ address })
-  const { data: ensAvatar } = useEnsAvatar({ name: ensName! })
-  const { connect, connectors } = useConnect()
+ 
   const decimals = 18;
 
   // Token contract interactions
@@ -313,21 +330,19 @@ console.log("Game Outcome:", gameOutcome);
   const resetFlipState = () => {
     setFlipResult({ won: null, result: null });
     setState(prev => ({ ...prev, success: null, error: null }));
+    setRequestId(null);
     setIsFlipping(false); // Ensure flipping is reset
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
-     <div>
-      {ensAvatar && <img alt="ENS Avatar" src={ensAvatar} />}
-      {address && <div>{ensName ? `${ensName} (${address})` : address}</div>}
-      {connectors.map((connector) => (
-        <button key={connector.id} onClick={() => connect({ connector })}>
-          {connector.name}
-        </button>
-      ))}
-     
-    </div>
+   {address && (
+  <div className="text-white">
+    {ensName 
+      ? `${ensName} (${address.slice(0, 6)}...${address.slice(-4)})` 
+      : `${address.slice(0, 6)}...${address.slice(-4)}`}
+  </div>
+)}
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
         {state.error && (
           <div className="fixed top-4 right-4 bg-red-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
