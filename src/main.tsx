@@ -9,7 +9,7 @@ import App from './App';
 
 function FarcasterFrameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const init = async () => {
+  const init = async () => {
       FrameSDK.actions.ready();
     };
 
@@ -17,7 +17,10 @@ function FarcasterFrameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return <>{children}</>;
-}
+ }
+
+
+
 
 // Create a new query client
 const queryClient = new QueryClient();
@@ -29,9 +32,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <FarcasterFrameProvider>
+      <FarcasterFrameProvider>
           <App />
-        </FarcasterFrameProvider>
+    </FarcasterFrameProvider>
       </QueryClientProvider>
     </WagmiProvider>
   </StrictMode>
