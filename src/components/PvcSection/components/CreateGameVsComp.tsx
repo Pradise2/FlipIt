@@ -51,6 +51,8 @@ const FlipCoin = () => {
   const [flipHash, setFlipHash] = useState<`0x${string}` | undefined>(
     undefined
   );
+  // Flag to maintain coin animation during transactions
+  const [animateFlipping, setAnimateFlipping] = useState(false);
 
   const { address, isConnected } = useAccount();
   const { data: ensName } = useEnsName({ address });
@@ -141,7 +143,7 @@ const FlipCoin = () => {
   const { isSuccess: approvalConfirmed, isPending: isApprovalPending } =
     useWaitForTransactionReceipt({ hash: approvalHash });
   const { writeContract: writeFlip, reset: resetFlip } = useWriteContract();
-  useWaitForTransactionReceipt({
+  const { isSuccess: flipConfirmed } = useWaitForTransactionReceipt({
     hash: flipHash,
   });
 
@@ -163,6 +165,7 @@ const FlipCoin = () => {
           loading: false,
         }));
         setIsFlipping(false);
+        setAnimateFlipping(false);
       }
     },
     onError(error) {
@@ -172,6 +175,7 @@ const FlipCoin = () => {
         loading: false,
       }));
       setIsFlipping(false);
+      setAnimateFlipping(false);
     },
   });
 
@@ -180,31 +184,50 @@ const FlipCoin = () => {
     abi: ABI,
     eventName: "BetFulfilled",
     onLogs(logs) {
-      const log = logs[0] as (typeof logs)[0] & {
-        args: { requestId: bigint; userWon: boolean; rolled: bigint };
-      };
-      if (log?.args && log.args.requestId.toString() === requestId) {
-        setFlipResult({
-          won: log.args.userWon,
-          result: `You ${log.args.userWon ? "Won" : "Lost"}. Choice: ${
-            state.face ? "Tails" : "Heads"
-          }, Outcome: ${
-            log.args.rolled % BigInt(2) === BigInt(0) ? "Heads" : "Tails"
-          }`,
-        });
-        setState((prev) => ({
-          ...prev,
-          success: "Game completed",
-          loading: false,
-        }));
-        setIsFlipping(false);
-      } else {
-        setState((prev) => ({
-          ...prev,
-          error: "BetFulfilled event mismatch or invalid",
-          loading: false,
-        }));
-        setIsFlipping(false);
+      for (const log of logs) {
+        const typedLog = log as (typeof logs)[0] & {
+          args: { requestId: bigint; userWon: boolean; rolled: bigint };
+        };
+
+        if (
+          typedLog?.args &&
+          requestId &&
+          typedLog.args.requestId.toString() === requestId
+        ) {
+          setFlipResult({
+            won: typedLog.args.userWon,
+            result: `You ${typedLog.args.userWon ? "Won" : "Lost"}. Choice: ${
+              state.face ? "Tails" : "Heads"
+            }, Outcome: ${
+              typedLog.args.rolled % BigInt(2) === BigInt(0) ? "Heads" : "Tails"
+            }`,
+          });
+          setState((prev) => ({
+            ...prev,
+            success: "Game completed",
+            loading: false,
+          }));
+          setIsFlipping(false);
+          setAnimateFlipping(false);
+          return; // Exit after processing the matching event
+        }
+      }
+
+      // If we've processed all logs and found no match, check if we need to timeout
+      if (flipConfirmed && requestId) {
+        setTimeout(() => {
+          // If still no result after confirmation + timeout, show error
+          if (flipResult.won === null) {
+            setState((prev) => ({
+              ...prev,
+              error:
+                "Transaction completed but couldn't get result. Please check your wallet history.",
+              loading: false,
+            }));
+            setIsFlipping(false);
+            setAnimateFlipping(false);
+          }
+        }, 10000); // 10 second grace period after confirmation
       }
     },
     onError(error) {
@@ -214,6 +237,7 @@ const FlipCoin = () => {
         loading: false,
       }));
       setIsFlipping(false);
+      setAnimateFlipping(false);
     },
   });
 
@@ -244,6 +268,21 @@ const FlipCoin = () => {
       fetchTokenBalance();
     }
   }, [isBalanceFetching, isSymbolFetching, fetchTokenBalance]);
+
+  // Add an effect to refresh the allowance after approval is confirmed
+  useEffect(() => {
+    if (approvalConfirmed) {
+      refetchAllowance();
+      setState((prev) => ({ ...prev, isApproving: false }));
+    }
+  }, [approvalConfirmed, refetchAllowance]);
+
+  // Add an effect to update state after game completion
+  useEffect(() => {
+    if (flipResult.won !== null) {
+      refetchBalance(); // Refresh balance after game completion
+    }
+  }, [flipResult, refetchBalance]);
 
   const validateInput = (): string | null => {
     if (!isConnected || !address) return "Please connect your wallet";
@@ -284,9 +323,11 @@ const FlipCoin = () => {
       success: null,
     }));
     setIsFlipping(true);
+    setAnimateFlipping(true);
     setApprovalHash(undefined);
     setFlipHash(undefined);
     setRequestId(null);
+    setFlipResult({ won: null, result: null });
     resetApproval();
     resetFlip();
 
@@ -326,17 +367,17 @@ const FlipCoin = () => {
 
         await approvalPromise;
 
+        // Wait for approval to be confirmed
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
             clearInterval(checkConfirmation);
             reject(new Error("Approval timed out after 30 seconds"));
           }, 30000);
+
           const checkConfirmation = setInterval(() => {
             if (approvalConfirmed) {
               clearTimeout(timeout);
               clearInterval(checkConfirmation);
-              setState((prev) => ({ ...prev, isApproving: false }));
-              refetchAllowance();
               resolve();
             } else if (!isApprovalPending) {
               clearTimeout(timeout);
@@ -345,11 +386,13 @@ const FlipCoin = () => {
             }
           }, 500);
         });
-      } else {
-        setState((prev) => ({ ...prev, isApproving: false }));
+
+        // Force a refetch of allowance data
+        await refetchAllowance();
       }
 
-      const flipPromise = new Promise<void>((resolve, reject) => {
+      // Now flip the coin
+      await new Promise<void>((resolve, reject) => {
         writeFlip(
           {
             address: ADDRESS,
@@ -373,7 +416,19 @@ const FlipCoin = () => {
         );
       });
 
-      await flipPromise;
+      // Set a timeout to handle the case where events aren't caught
+      setTimeout(() => {
+        if (isFlipping && flipConfirmed) {
+          setState((prev) => ({
+            ...prev,
+            error:
+              "Game results not received. Please check your wallet transactions and try again.",
+            loading: false,
+          }));
+          setIsFlipping(false);
+          setAnimateFlipping(false);
+        }
+      }, 60000); // 1 minute timeout
     } catch (error) {
       setState((prev) => ({
         ...prev,
@@ -383,6 +438,7 @@ const FlipCoin = () => {
         isApproving: false,
       }));
       setIsFlipping(false);
+      setAnimateFlipping(false);
       resetApproval();
       resetFlip();
     }
@@ -413,9 +469,11 @@ const FlipCoin = () => {
     setApprovalHash(undefined);
     setFlipHash(undefined);
     setIsFlipping(false);
+    setAnimateFlipping(false);
     resetApproval();
     resetFlip();
     refetchAllowance();
+    refetchBalance();
   };
 
   return (
@@ -491,7 +549,7 @@ const FlipCoin = () => {
               <div className="flex justify-center items-center w-full h-full">
                 <div
                   className={`w-20 h-20 rounded-full relative ${
-                    isFlipping ? "animate-spin" : ""
+                    animateFlipping ? "animate-spin" : ""
                   } md:w-24 md:h-24`}
                   style={{
                     perspective: "1000px",
