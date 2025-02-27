@@ -415,6 +415,7 @@ const FlipCoin = () => {
       error: null,
       loading: false,
       isApproving: false,
+      tokenAmount: "",
     }));
     setRequestId(null);
     setApprovalHash(undefined);
