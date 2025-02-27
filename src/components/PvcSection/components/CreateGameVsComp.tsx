@@ -130,7 +130,7 @@ const FlipCoin = () => {
     query: { enabled: !!state.tokenAddress },
   });
 
-  const { data: allowanceData } = useReadContract({
+  const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
     address: state.tokenAddress as `0x${string}`,
     abi: [
       {
@@ -146,12 +146,11 @@ const FlipCoin = () => {
     query: { enabled: !!address },
   });
 
-  // Approval and Flip transactions
-  const { writeContract: writeApproval } = useWriteContract();
-  const { isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({
-    hash: approvalHash,
-  });
-  const { writeContract: writeFlip } = useWriteContract();
+  const { writeContract: writeApproval, reset: resetApproval } =
+    useWriteContract();
+  const { isSuccess: approvalConfirmed, isPending: isApprovalPending } =
+    useWaitForTransactionReceipt({ hash: approvalHash });
+  const { writeContract: writeFlip, reset: resetFlip } = useWriteContract();
   const { isSuccess: flipConfirmed } = useWaitForTransactionReceipt({
     hash: flipHash,
   });
@@ -167,11 +166,18 @@ const FlipCoin = () => {
       };
       if (log?.args) {
         setRequestId(log.args.requestId.toString());
-        console.log("BetSent:", {
-          requestId: log.args.requestId.toString(),
-          numWords: log.args.numWords,
-        });
+      } else {
+        setState((prev) => ({
+          ...prev,
+          error: "Failed to process BetSent event",
+        }));
       }
+    },
+    onError(error) {
+      setState((prev) => ({
+        ...prev,
+        error: `BetSent event listener failed: ${error.message}`,
+      }));
     },
   });
 
@@ -183,12 +189,18 @@ const FlipCoin = () => {
       const log = logs[0] as (typeof logs)[0] & {
         args: { requestId: bigint; userWon: boolean; rolled: bigint };
       };
-      if (log?.args && log.args.requestId.toString() === requestId) {
-        console.log("BetFulfilled:", {
-          requestId: log.args.requestId.toString(),
-          userWon: log.args.userWon,
-        });
+      if (!log?.args || log.args.requestId.toString() !== requestId) {
+        setState((prev) => ({
+          ...prev,
+          error: "BetFulfilled event mismatch or invalid",
+        }));
       }
+    },
+    onError(error) {
+      setState((prev) => ({
+        ...prev,
+        error: `BetFulfilled event listener failed: ${error.message}`,
+      }));
     },
   });
 
@@ -220,6 +232,11 @@ const FlipCoin = () => {
         tokenSymbol: symbolData as string,
         isBalanceLoading: false,
       }));
+    } else {
+      setState((prev) => ({
+        ...prev,
+        error: "Failed to fetch balance or symbol",
+      }));
     }
   }, [balanceData, symbolData]);
 
@@ -240,7 +257,7 @@ const FlipCoin = () => {
     if (!state.tokenAmount || parseFloat(state.tokenAmount) <= 0)
       return "Bet amount must be positive";
     if (parseFloat(state.tokenBalance) < parseFloat(state.tokenAmount))
-      return `Insufficient ${state.tokenBalance} balance`;
+      return `Insufficient ${state.tokenSymbol} balance`;
     if (treasuryBalance) {
       const requiredBalance =
         parseUnits(state.tokenAmount, decimals) * BigInt(2);
@@ -260,15 +277,13 @@ const FlipCoin = () => {
   const handleFlipCoin = async () => {
     const validationError = validateInput();
     if (validationError) {
-      setState((prev) => ({ ...prev, error: validationError }));
+      setState((prev) => ({
+        ...prev,
+        error: `Validation failed: ${validationError}`,
+      }));
       return;
     }
 
-    console.log("Starting flip process", {
-      allowance: allowanceData
-        ? formatUnits(allowanceData as bigint, decimals)
-        : "N/A",
-    });
     setState((prev) => ({
       ...prev,
       loading: true,
@@ -278,20 +293,16 @@ const FlipCoin = () => {
     setIsFlipping(true);
     setApprovalHash(undefined);
     setFlipHash(undefined);
+    resetApproval();
+    resetFlip();
 
     const amountInWei = parseUnits(state.tokenAmount, decimals);
     const currentAllowance = allowanceData as bigint | undefined;
 
     try {
       if (!currentAllowance || currentAllowance < amountInWei) {
-        console.log("Approval needed", {
-          currentAllowance: currentAllowance
-            ? formatUnits(currentAllowance, decimals)
-            : "0",
-          amountInWei: formatUnits(amountInWei, decimals),
-        });
         setState((prev) => ({ ...prev, isApproving: true }));
-        await new Promise<void>((resolve, reject) => {
+        const approvalPromise = new Promise<void>((resolve, reject) => {
           writeApproval(
             {
               address: state.tokenAddress as `0x${string}`,
@@ -310,35 +321,45 @@ const FlipCoin = () => {
             {
               onSuccess: (hash) => {
                 setApprovalHash(hash);
-                console.log("Approval hash set:", hash);
                 resolve();
               },
               onError: (error) => {
-                console.error("Approval failed:", error);
-                reject(error);
+                reject(
+                  new Error(`Approval transaction failed: ${error.message}`)
+                );
               },
             }
           );
         });
 
-        // Wait for approval confirmation
-        await new Promise<void>((resolve) => {
+        await approvalPromise;
+
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            clearInterval(checkConfirmation);
+            reject(
+              new Error("Approval confirmation timed out after 30 seconds")
+            );
+          }, 30000);
           const checkConfirmation = setInterval(() => {
             if (approvalConfirmed) {
+              clearTimeout(timeout);
               clearInterval(checkConfirmation);
-              console.log("Approval confirmed");
               setState((prev) => ({ ...prev, isApproving: false }));
+              refetchAllowance();
               resolve();
+            } else if (!isApprovalPending) {
+              clearTimeout(timeout);
+              clearInterval(checkConfirmation);
+              reject(new Error("Approval transaction was cancelled or failed"));
             }
           }, 500);
         });
       } else {
-        console.log("Skipping approval - sufficient allowance");
         setState((prev) => ({ ...prev, isApproving: false }));
       }
 
-      console.log("Initiating flip");
-      await new Promise<void>((resolve, reject) => {
+      const flipPromise = new Promise<void>((resolve, reject) => {
         writeFlip(
           {
             address: ADDRESS,
@@ -353,30 +374,32 @@ const FlipCoin = () => {
           {
             onSuccess: (hash) => {
               setFlipHash(hash);
-              console.log("Flip hash set:", hash);
               resolve();
             },
             onError: (error) => {
-              console.error("Flip failed:", error);
-              reject(error);
+              reject(new Error(`Flip transaction failed: ${error.message}`));
             },
           }
         );
       });
+
+      await flipPromise;
     } catch (error) {
       setState((prev) => ({
         ...prev,
-        error: error instanceof Error ? error.message : "Transaction failed",
+        error:
+          error instanceof Error ? error.message : "Unknown transaction error",
         loading: false,
         isApproving: false,
       }));
       setIsFlipping(false);
+      resetApproval();
+      resetFlip();
     }
   };
 
   useEffect(() => {
     if (flipConfirmed && gameOutcome && betStatus && betStatus[1]) {
-      console.log("Game outcome received:", gameOutcome);
       setFlipResult({
         won: gameOutcome.playerWon,
         result: `You ${gameOutcome.playerWon ? "Won" : "Lost"}. Choice: ${
@@ -391,6 +414,18 @@ const FlipCoin = () => {
       setIsFlipping(false);
       setRequestId(null);
       fetchTokenBalance();
+    } else if (
+      flipHash &&
+      !flipConfirmed &&
+      !gameOutcome &&
+      betStatus &&
+      !betStatus[1]
+    ) {
+      setState((prev) => ({
+        ...prev,
+        error: "Failed to fetch game outcome or bet status",
+      }));
+      setIsFlipping(false);
     }
   }, [flipConfirmed, gameOutcome, betStatus, fetchTokenBalance]);
 
@@ -407,7 +442,6 @@ const FlipCoin = () => {
   };
 
   const resetGame = () => {
-    console.log("Resetting game state");
     setFlipResult({ won: null, result: null });
     setState((prev) => ({
       ...prev,
@@ -415,12 +449,14 @@ const FlipCoin = () => {
       error: null,
       loading: false,
       isApproving: false,
-      tokenAmount: "",
     }));
     setRequestId(null);
     setApprovalHash(undefined);
     setFlipHash(undefined);
     setIsFlipping(false);
+    resetApproval();
+    resetFlip();
+    refetchAllowance();
   };
 
   return (
@@ -446,6 +482,12 @@ const FlipCoin = () => {
         {state.error && (
           <div className="fixed top-4 right-4 bg-red-500/90 text-white px-3 py-2 rounded-md shadow-lg z-50 animate-fade-in text-sm max-w-[90%] md:max-w-md">
             {state.error}
+            <button
+              onClick={() => setState((prev) => ({ ...prev, error: null }))}
+              className="ml-2 bg-white text-red-500 px-2 py-1 rounded"
+            >
+              Close
+            </button>
           </div>
         )}
         {state.success && (
