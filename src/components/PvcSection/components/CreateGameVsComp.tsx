@@ -7,8 +7,8 @@ import {
   useAccount,
   useEnsName,
   useWatchContractEvent,
-  useConnect, // Add this for wallet connection
-  useDisconnect, // Optional: for disconnect functionality
+  useConnect,
+  useDisconnect,
 } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 
@@ -58,8 +58,8 @@ const FlipCoin = () => {
 
   const { address, isConnected } = useAccount();
   const { data: ensName } = useEnsName({ address });
-  const { connect, connectors } = useConnect(); // For connecting wallets
-  const { disconnect } = useDisconnect(); // For disconnecting wallets
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
   const decimals = 18;
 
   // Token contract reads
@@ -108,7 +108,6 @@ const FlipCoin = () => {
     functionName: "symbol",
   });
 
-  // Treasury balance check
   const { data: treasuryBalance } = useReadContract({
     address: state.tokenAddress as `0x${string}`,
     abi: [
@@ -176,7 +175,6 @@ const FlipCoin = () => {
     },
   });
 
-  // Bet status and game outcome
   const { data: betStatus } = useReadContract({
     address: ADDRESS,
     abi: ABI,
@@ -197,7 +195,6 @@ const FlipCoin = () => {
     query: { enabled: !!requestId && !!betStatus?.[1] },
   }) as { data: GameOutcome | undefined };
 
-  // Fetch token balance and symbol
   const fetchTokenBalance = useCallback(() => {
     if (balanceData && symbolData) {
       setState((prev) => ({
@@ -224,12 +221,11 @@ const FlipCoin = () => {
   useEffect(() => {
     if (isConfirmed && flipHash) {
       setState((prev) => ({ ...prev, loading: false, isBalanceLoading: true }));
-      setIsFlipping(false);
+      // Do not set isFlipping to false here; wait for gameOutcome
       refetchBalance();
     }
   }, [isConfirmed, flipHash, refetchBalance]);
 
-  // Validation with treasury check
   const validateInput = (): string | null => {
     if (!isConnected || !address) return "Please connect your wallet";
     if (!state.tokenAmount || parseFloat(state.tokenAmount) <= 0)
@@ -329,7 +325,7 @@ const FlipCoin = () => {
         success: "Game completed",
         loading: false,
       }));
-      setIsFlipping(false);
+      setIsFlipping(false); // Stop flipping only when outcome is ready
       fetchTokenBalance();
     }
   }, [betStatus, gameOutcome, requestId, fetchTokenBalance]);
@@ -338,30 +334,28 @@ const FlipCoin = () => {
     setState((prev) => ({ ...prev, face: !prev.face }));
   };
 
-  // Wallet connection handler
   const handleConnect = () => {
     if (!isConnected && connectors.length > 0) {
-      connect({ connector: connectors[0] }); // Use the first available connector (e.g., MetaMask)
+      connect({ connector: connectors[0] });
     } else if (isConnected) {
-      disconnect(); // Disconnect if already connected
+      disconnect();
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
-      <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
-        {/* Wallet Connection Button */}
+      <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-4 space-y-4">
         <div className="flex justify-end">
           <button
             onClick={handleConnect}
-            className="bg-purple-700 text-white px-4 py-2 rounded"
+            className="bg-purple-700 text-white px-3 py-1 rounded text-sm md:px-4 md:py-2 md:text-base"
           >
             {isConnected ? "Disconnect" : "Connect Wallet"}
           </button>
         </div>
 
         {address && (
-          <div className="text-white">
+          <div className="text-white text-sm md:text-base">
             {ensName
               ? `${ensName} (${address.slice(0, 6)}...${address.slice(-4)})`
               : `${address.slice(0, 6)}...${address.slice(-4)}`}
@@ -369,21 +363,21 @@ const FlipCoin = () => {
         )}
 
         {state.error && (
-          <div className="fixed top-4 right-4 bg-red-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
+          <div className="fixed top-4 right-4 bg-red-500/90 text-white px-3 py-2 rounded-md shadow-lg z-50 animate-fade-in text-sm max-w-[90%] md:max-w-md">
             {state.error}
           </div>
         )}
         {state.success && (
-          <div className="fixed top-4 right-4 bg-green-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
+          <div className="fixed top-4 right-4 bg-green-500/90 text-white px-3 py-2 rounded-md shadow-lg z-50 animate-fade-in text-sm max-w-[90%] md:max-w-md">
             {state.success}
           </div>
         )}
 
         {isFlipping && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-10 rounded-lg shadow-lg">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div>
-              <p className="mt-4 text-center">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-sm md:p-10 md:max-w-md">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto md:h-16 md:w-16"></div>
+              <p className="mt-3 text-center text-sm md:mt-4 md:text-base">
                 {state.isApproving ? "Approving..." : "Flipping..."}
               </p>
             </div>
@@ -392,14 +386,14 @@ const FlipCoin = () => {
 
         {flipResult.won !== null && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-10 rounded-lg shadow-lg">
-              <h2 className="text-lg font-bold mb-2">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-sm md:p-10 md:max-w-md">
+              <h2 className="text-lg font-bold mb-2 md:text-xl">
                 {flipResult.won ? "Congratulations!" : "Better luck next time!"}
               </h2>
-              <p>{flipResult.result}</p>
+              <p className="text-sm md:text-base">{flipResult.result}</p>
               <button
                 onClick={() => setFlipResult({ won: null, result: null })}
-                className="mt-4 bg-purple-500 text-white px-4 py-2 rounded"
+                className="mt-3 bg-purple-500 text-white px-3 py-1 rounded text-sm md:mt-4 md:px-4 md:py-2 md:text-base"
               >
                 Close
               </button>
@@ -408,13 +402,13 @@ const FlipCoin = () => {
         )}
 
         <div className="w-full bg-purple-950/70 backdrop-blur-sm border border-purple-800/30 rounded-lg overflow-hidden shadow-xl">
-          <div className="p-6 bg-purple-950/40 text-purple-100 backdrop-blur-sm">
+          <div className="p-4 bg-purple-950/40 text-purple-100 backdrop-blur-sm md:p-6">
             <div className="space-y-4">
               <div className="flex justify-center items-center w-full h-full">
                 <div
-                  className={`w-24 h-24 rounded-full relative ${
+                  className={`w-20 h-20 rounded-full relative ${
                     isFlipping ? "animate-spin" : ""
-                  }`}
+                  } md:w-24 md:h-24`}
                   style={{
                     perspective: "1000px",
                     transformStyle: "preserve-3d",
@@ -433,7 +427,7 @@ const FlipCoin = () => {
                     }}
                   >
                     <span
-                      className="text-lg font-bold"
+                      className="text-base font-bold md:text-lg"
                       style={{ color: "#422006" }}
                     >
                       TAILS
@@ -451,7 +445,7 @@ const FlipCoin = () => {
                     }}
                   >
                     <span
-                      className="text-lg font-bold"
+                      className="text-base font-bold md:text-lg"
                       style={{ color: "#422006" }}
                     >
                       HEADS
@@ -461,7 +455,7 @@ const FlipCoin = () => {
               </div>
 
               <div className="flex flex-col items-start space-y-1">
-                <p className="text-purple-200 flex items-center">
+                <p className="text-purple-200 text-sm md:text-base flex items-center">
                   {state.tokenSymbol} balance:
                   {state.isBalanceLoading ||
                   isBalanceFetching ||
@@ -473,7 +467,7 @@ const FlipCoin = () => {
                     </span>
                   )}
                 </p>
-                <p className="text-purple-200">
+                <p className="text-purple-200 text-sm md:text-base">
                   Choice: {state.face ? "Tails" : "Heads"}
                 </p>
               </div>
@@ -481,7 +475,7 @@ const FlipCoin = () => {
               <div className="flex flex-col w-full">
                 <label
                   htmlFor="token"
-                  className="block text-md font-medium text-purple-200 mb-1"
+                  className="block text-sm font-medium text-purple-200 mb-1 md:text-md"
                 >
                   Select Token
                 </label>
@@ -502,7 +496,7 @@ const FlipCoin = () => {
                       isBalanceLoading: true,
                     }));
                   }}
-                  className="w-full text-gray-700 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  className="w-full text-gray-700 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm md:text-base"
                   disabled={state.loading || state.isApproving}
                 >
                   {Object.entries(SUPPORTED_TOKENS).map(([key, value]) => (
@@ -513,7 +507,7 @@ const FlipCoin = () => {
                 </select>
               </div>
 
-              <label className="block text-purple-200">
+              <label className="block text-purple-200 text-sm md:text-base">
                 Bet amount ({state.tokenSymbol})
               </label>
               <input
@@ -526,23 +520,23 @@ const FlipCoin = () => {
                 onChange={(e) =>
                   setState((prev) => ({ ...prev, tokenAmount: e.target.value }))
                 }
-                className="w-full bg-purple-900/50 border border-purple-700/30 text-purple-100 rounded-md p-2 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-600/50"
+                className="w-full bg-purple-900/50 border border-purple-700/30 text-purple-100 rounded-md p-2 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-600/50 text-sm md:text-base"
                 disabled={state.loading || state.isApproving}
               />
 
               <button
-                className={`w-full py-3 flex items-center justify-center ${
+                className={`w-full py-2 flex items-center justify-center ${
                   state.loading || state.isApproving
                     ? "bg-purple-600/50 cursor-not-allowed"
                     : "bg-gradient-to-r from-purple-700 to-purple-800 hover:from-purple-600 hover:to-purple-700"
-                } text-white rounded-md transition duration-200 font-semibold shadow-lg`}
+                } text-white rounded-md transition duration-200 font-semibold shadow-lg text-sm md:py-3 md:text-base`}
                 onClick={handleFlipCoin}
                 disabled={state.loading || state.isApproving}
               >
                 {state.loading || state.isApproving ? (
                   <div className="flex items-center space-x-2">
                     <svg
-                      className="animate-spin h-5 w-5 text-white"
+                      className="animate-spin h-4 w-4 text-white md:h-5 md:w-5"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
