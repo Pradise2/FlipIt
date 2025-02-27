@@ -57,10 +57,10 @@ const FlipCoin = () => {
   }>({ won: null, result: null });
   const [approvalHash, setApprovalHash] = useState<`0x${string}` | undefined>(
     undefined
-  ); // Track approval hash explicitly
+  );
   const [flipHash, setFlipHash] = useState<`0x${string}` | undefined>(
     undefined
-  ); // Track flip hash explicitly
+  );
 
   const { address, isConnected } = useAccount();
   const { data: ensName } = useEnsName({ address });
@@ -130,7 +130,6 @@ const FlipCoin = () => {
     query: { enabled: !!state.tokenAddress },
   });
 
-  // Check current allowance
   const { data: allowanceData } = useReadContract({
     address: state.tokenAddress as `0x${string}`,
     abi: [
@@ -153,8 +152,9 @@ const FlipCoin = () => {
     hash: approvalHash,
   });
   const { writeContract: writeFlip } = useWriteContract();
-  const { isSuccess: isConfirmed, isPending: isFlipPending } =
-    useWaitForTransactionReceipt({ hash: flipHash });
+  const { isSuccess: flipConfirmed } = useWaitForTransactionReceipt({
+    hash: flipHash,
+  });
 
   // Event listeners
   useWatchContractEvent({
@@ -235,19 +235,12 @@ const FlipCoin = () => {
     }
   }, [isBalanceFetching, isSymbolFetching, fetchTokenBalance]);
 
-  useEffect(() => {
-    if (isConfirmed && flipHash) {
-      setState((prev) => ({ ...prev, loading: false, isBalanceLoading: true }));
-      refetchBalance();
-    }
-  }, [isConfirmed, flipHash, refetchBalance]);
-
   const validateInput = (): string | null => {
     if (!isConnected || !address) return "Please connect your wallet";
     if (!state.tokenAmount || parseFloat(state.tokenAmount) <= 0)
       return "Bet amount must be positive";
     if (parseFloat(state.tokenBalance) < parseFloat(state.tokenAmount))
-      return `Insufficient ${state.tokenSymbol} balance`;
+      return `Insufficient ${state.tokenBalance} balance`;
     if (treasuryBalance) {
       const requiredBalance =
         parseUnits(state.tokenAmount, decimals) * BigInt(2);
@@ -271,6 +264,11 @@ const FlipCoin = () => {
       return;
     }
 
+    console.log("Starting flip process", {
+      allowance: allowanceData
+        ? formatUnits(allowanceData as bigint, decimals)
+        : "N/A",
+    });
     setState((prev) => ({
       ...prev,
       loading: true,
@@ -278,47 +276,69 @@ const FlipCoin = () => {
       success: null,
     }));
     setIsFlipping(true);
-    setApprovalHash(undefined); // Reset approval hash
-    setFlipHash(undefined); // Reset flip hash
+    setApprovalHash(undefined);
+    setFlipHash(undefined);
+
+    const amountInWei = parseUnits(state.tokenAmount, decimals);
+    const currentAllowance = allowanceData as bigint | undefined;
 
     try {
-      const amountInWei = parseUnits(state.tokenAmount, decimals);
-
-      // Check if approval is needed
-      const currentAllowance = allowanceData as bigint | undefined;
       if (!currentAllowance || currentAllowance < amountInWei) {
+        console.log("Approval needed", {
+          currentAllowance: currentAllowance
+            ? formatUnits(currentAllowance, decimals)
+            : "0",
+          amountInWei: formatUnits(amountInWei, decimals),
+        });
         setState((prev) => ({ ...prev, isApproving: true }));
-        writeApproval(
-          {
-            address: state.tokenAddress as `0x${string}`,
-            abi: [
-              {
-                name: "approve",
-                type: "function",
-                inputs: [{ type: "address" }, { type: "uint256" }],
-                outputs: [{ type: "bool" }],
-                stateMutability: "nonpayable",
-              },
-            ],
-            functionName: "approve",
-            args: [ADDRESS, amountInWei],
-          },
-          {
-            onSuccess: (hash) => setApprovalHash(hash), // Set approval hash on success
-            onError: (error) => {
-              setState((prev) => ({
-                ...prev,
-                error: error.message || "Failed to approve",
-                loading: false,
-                isApproving: false,
-              }));
-              setIsFlipping(false);
+        await new Promise<void>((resolve, reject) => {
+          writeApproval(
+            {
+              address: state.tokenAddress as `0x${string}`,
+              abi: [
+                {
+                  name: "approve",
+                  type: "function",
+                  inputs: [{ type: "address" }, { type: "uint256" }],
+                  outputs: [{ type: "bool" }],
+                  stateMutability: "nonpayable",
+                },
+              ],
+              functionName: "approve",
+              args: [ADDRESS, amountInWei],
             },
-          }
-        );
+            {
+              onSuccess: (hash) => {
+                setApprovalHash(hash);
+                console.log("Approval hash set:", hash);
+                resolve();
+              },
+              onError: (error) => {
+                console.error("Approval failed:", error);
+                reject(error);
+              },
+            }
+          );
+        });
+
+        // Wait for approval confirmation
+        await new Promise<void>((resolve) => {
+          const checkConfirmation = setInterval(() => {
+            if (approvalConfirmed) {
+              clearInterval(checkConfirmation);
+              console.log("Approval confirmed");
+              setState((prev) => ({ ...prev, isApproving: false }));
+              resolve();
+            }
+          }, 500);
+        });
       } else {
-        // Skip approval if sufficient allowance exists
+        console.log("Skipping approval - sufficient allowance");
         setState((prev) => ({ ...prev, isApproving: false }));
+      }
+
+      console.log("Initiating flip");
+      await new Promise<void>((resolve, reject) => {
         writeFlip(
           {
             address: ADDRESS,
@@ -331,23 +351,22 @@ const FlipCoin = () => {
             ],
           },
           {
-            onSuccess: (hash) => setFlipHash(hash), // Set flip hash on success
+            onSuccess: (hash) => {
+              setFlipHash(hash);
+              console.log("Flip hash set:", hash);
+              resolve();
+            },
             onError: (error) => {
-              setState((prev) => ({
-                ...prev,
-                error: error.message || "Failed to flip",
-                loading: false,
-              }));
-              setIsFlipping(false);
+              console.error("Flip failed:", error);
+              reject(error);
             },
           }
         );
-      }
+      });
     } catch (error) {
       setState((prev) => ({
         ...prev,
-        error:
-          error instanceof Error ? error.message : "Failed to initiate flip",
+        error: error instanceof Error ? error.message : "Transaction failed",
         loading: false,
         isApproving: false,
       }));
@@ -356,40 +375,8 @@ const FlipCoin = () => {
   };
 
   useEffect(() => {
-    if (approvalConfirmed && !isFlipPending && !flipHash) {
-      const amountInWei = parseUnits(state.tokenAmount, decimals);
-      setState((prev) => ({ ...prev, isApproving: false }));
-      writeFlip(
-        {
-          address: ADDRESS,
-          abi: ABI,
-          functionName: "flip",
-          args: [state.face, state.tokenAddress as `0x${string}`, amountInWei],
-        },
-        {
-          onSuccess: (hash) => setFlipHash(hash),
-          onError: (error) => {
-            setState((prev) => ({
-              ...prev,
-              error: error.message || "Failed to flip",
-              loading: false,
-            }));
-            setIsFlipping(false);
-          },
-        }
-      );
-    }
-  }, [
-    approvalConfirmed,
-    isFlipPending,
-    flipHash,
-    state.face,
-    state.tokenAmount,
-    state.tokenAddress,
-  ]);
-
-  useEffect(() => {
-    if (betStatus && requestId && betStatus[1] && gameOutcome) {
+    if (flipConfirmed && gameOutcome && betStatus && betStatus[1]) {
+      console.log("Game outcome received:", gameOutcome);
       setFlipResult({
         won: gameOutcome.playerWon,
         result: `You ${gameOutcome.playerWon ? "Won" : "Lost"}. Choice: ${
@@ -402,10 +389,10 @@ const FlipCoin = () => {
         loading: false,
       }));
       setIsFlipping(false);
-      setRequestId(null); // Reset requestId for the next game
+      setRequestId(null);
       fetchTokenBalance();
     }
-  }, [betStatus, gameOutcome, requestId, fetchTokenBalance]);
+  }, [flipConfirmed, gameOutcome, betStatus, fetchTokenBalance]);
 
   const handleChoiceClick = () => {
     setState((prev) => ({ ...prev, face: !prev.face }));
@@ -420,6 +407,7 @@ const FlipCoin = () => {
   };
 
   const resetGame = () => {
+    console.log("Resetting game state");
     setFlipResult({ won: null, result: null });
     setState((prev) => ({
       ...prev,
@@ -484,7 +472,7 @@ const FlipCoin = () => {
               </h2>
               <p className="text-sm md:text-base">{flipResult.result}</p>
               <button
-                onClick={resetGame} // Use resetGame instead of inline state update
+                onClick={resetGame}
                 className="mt-3 bg-purple-500 text-white px-3 py-1 rounded text-sm md:mt-4 md:px-4 md:py-2 md:text-base"
               >
                 Close
