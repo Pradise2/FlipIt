@@ -170,14 +170,18 @@ const FlipCoin = () => {
         setState((prev) => ({
           ...prev,
           error: "Failed to process BetSent event",
+          loading: false,
         }));
+        setIsFlipping(false);
       }
     },
     onError(error) {
       setState((prev) => ({
         ...prev,
-        error: `BetSent event listener failed: ${error.message}`,
+        error: `BetSent event error: ${error.message}`,
+        loading: false,
       }));
+      setIsFlipping(false);
     },
   });
 
@@ -189,40 +193,39 @@ const FlipCoin = () => {
       const log = logs[0] as (typeof logs)[0] & {
         args: { requestId: bigint; userWon: boolean; rolled: bigint };
       };
-      if (!log?.args || log.args.requestId.toString() !== requestId) {
+      if (log?.args && log.args.requestId.toString() === requestId) {
+        setFlipResult({
+          won: log.args.userWon,
+          result: `You ${log.args.userWon ? "Won" : "Lost"}. Choice: ${
+            state.face ? "Tails" : "Heads"
+          }, Outcome: ${
+            log.args.rolled % BigInt(2) === BigInt(0) ? "Heads" : "Tails"
+          }`,
+        });
+        setState((prev) => ({
+          ...prev,
+          success: "Game completed",
+          loading: false,
+        }));
+        setIsFlipping(false);
+      } else {
         setState((prev) => ({
           ...prev,
           error: "BetFulfilled event mismatch or invalid",
+          loading: false,
         }));
+        setIsFlipping(false);
       }
     },
     onError(error) {
       setState((prev) => ({
         ...prev,
-        error: `BetFulfilled event listener failed: ${error.message}`,
+        error: `BetFulfilled event error: ${error.message}`,
+        loading: false,
       }));
+      setIsFlipping(false);
     },
   });
-
-  const { data: betStatus } = useReadContract({
-    address: ADDRESS,
-    abi: ABI,
-    functionName: "getBetStatus",
-    args: [requestId ? BigInt(requestId) : BigInt(0)],
-    query: { enabled: !!requestId },
-  }) as {
-    data:
-      | [bigint, boolean, boolean, bigint[], string, bigint, boolean]
-      | undefined;
-  };
-
-  const { data: gameOutcome } = useReadContract({
-    address: ADDRESS,
-    abi: ABI,
-    functionName: "getGameOutcome",
-    args: [requestId ? BigInt(requestId) : BigInt(0)],
-    query: { enabled: !!requestId && !!betStatus?.[1] },
-  }) as { data: GameOutcome | undefined };
 
   const fetchTokenBalance = useCallback(() => {
     if (balanceData && symbolData) {
@@ -293,6 +296,7 @@ const FlipCoin = () => {
     setIsFlipping(true);
     setApprovalHash(undefined);
     setFlipHash(undefined);
+    setRequestId(null);
     resetApproval();
     resetFlip();
 
@@ -324,9 +328,7 @@ const FlipCoin = () => {
                 resolve();
               },
               onError: (error) => {
-                reject(
-                  new Error(`Approval transaction failed: ${error.message}`)
-                );
+                reject(new Error(`Approval failed: ${error.message}`));
               },
             }
           );
@@ -337,9 +339,7 @@ const FlipCoin = () => {
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
             clearInterval(checkConfirmation);
-            reject(
-              new Error("Approval confirmation timed out after 30 seconds")
-            );
+            reject(new Error("Approval timed out after 30 seconds"));
           }, 30000);
           const checkConfirmation = setInterval(() => {
             if (approvalConfirmed) {
@@ -351,7 +351,7 @@ const FlipCoin = () => {
             } else if (!isApprovalPending) {
               clearTimeout(timeout);
               clearInterval(checkConfirmation);
-              reject(new Error("Approval transaction was cancelled or failed"));
+              reject(new Error("Approval was cancelled or failed"));
             }
           }, 500);
         });
@@ -377,7 +377,7 @@ const FlipCoin = () => {
               resolve();
             },
             onError: (error) => {
-              reject(new Error(`Flip transaction failed: ${error.message}`));
+              reject(new Error(`Flip failed: ${error.message}`));
             },
           }
         );
@@ -397,37 +397,6 @@ const FlipCoin = () => {
       resetFlip();
     }
   };
-
-  useEffect(() => {
-    if (flipConfirmed && gameOutcome && betStatus && betStatus[1]) {
-      setFlipResult({
-        won: gameOutcome.playerWon,
-        result: `You ${gameOutcome.playerWon ? "Won" : "Lost"}. Choice: ${
-          gameOutcome.playerChoice ? "Tails" : "Heads"
-        }, Outcome: ${gameOutcome.outcome ? "Tails" : "Heads"}`,
-      });
-      setState((prev) => ({
-        ...prev,
-        success: "Game completed",
-        loading: false,
-      }));
-      setIsFlipping(false);
-      setRequestId(null);
-      fetchTokenBalance();
-    } else if (
-      flipHash &&
-      !flipConfirmed &&
-      !gameOutcome &&
-      betStatus &&
-      !betStatus[1]
-    ) {
-      setState((prev) => ({
-        ...prev,
-        error: "Failed to fetch game outcome or bet status",
-      }));
-      setIsFlipping(false);
-    }
-  }, [flipConfirmed, gameOutcome, betStatus, fetchTokenBalance]);
 
   const handleChoiceClick = () => {
     setState((prev) => ({ ...prev, face: !prev.face }));
@@ -508,17 +477,19 @@ const FlipCoin = () => {
         )}
 
         {flipResult.won !== null && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-sm md:p-10 md:max-w-md">
-              <h2 className="text-lg font-bold mb-2 md:text-xl">
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 px-4">
+            <div className="bg-white p-4 rounded-lg shadow-lg w-full max-w-[90%] sm:max-w-sm md:p-6 md:max-w-md">
+              <h2 className="text-base font-bold mb-2 sm:text-lg md:text-xl text-center">
                 {flipResult.won ? "Congratulations!" : "Better luck next time!"}
               </h2>
-              <p className="text-sm md:text-base">{flipResult.result}</p>
+              <p className="text-xs sm:text-sm md:text-base text-center">
+                {flipResult.result}
+              </p>
               <button
                 onClick={resetGame}
-                className="mt-3 bg-purple-500 text-white px-3 py-1 rounded text-sm md:mt-4 md:px-4 md:py-2 md:text-base"
+                className="mt-2 w-full bg-purple-500 text-white px-2 py-1 rounded text-xs sm:mt-3 sm:text-sm md:mt-4 md:px-4 md:py-2 md:text-base"
               >
-                Close
+                Play Again
               </button>
             </div>
           </div>
