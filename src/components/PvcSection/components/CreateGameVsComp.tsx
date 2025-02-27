@@ -25,16 +25,6 @@ interface FlipCoinState {
   isBalanceLoading: boolean;
 }
 
-interface GameOutcome {
-  isComplete: boolean;
-  playerWon: boolean;
-  playerChoice: boolean;
-  outcome: boolean;
-  betAmount: bigint;
-  potentialPayout: bigint;
-  resultDescription: string;
-}
-
 const FlipCoin = () => {
   const [state, setState] = useState<FlipCoinState>({
     face: false,
@@ -151,7 +141,7 @@ const FlipCoin = () => {
   const { isSuccess: approvalConfirmed, isPending: isApprovalPending } =
     useWaitForTransactionReceipt({ hash: approvalHash });
   const { writeContract: writeFlip, reset: resetFlip } = useWriteContract();
-  const { isSuccess: flipConfirmed } = useWaitForTransactionReceipt({
+  useWaitForTransactionReceipt({
     hash: flipHash,
   });
 
