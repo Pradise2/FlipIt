@@ -7,9 +7,10 @@ import {
   useAccount,
   useEnsName,
   useWatchContractEvent,
+  useConnect, // Add this for wallet connection
+  useDisconnect, // Optional: for disconnect functionality
 } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
-import { useAppKit } from "@reown/appkit/react"; // For wallet button
 
 interface FlipCoinState {
   tokenAddress: string;
@@ -57,7 +58,8 @@ const FlipCoin = () => {
 
   const { address, isConnected } = useAccount();
   const { data: ensName } = useEnsName({ address });
-  const { open } = useAppKit(); // For AppKit wallet button
+  const { connect, connectors } = useConnect(); // For connecting wallets
+  const { disconnect } = useDisconnect(); // For disconnecting wallets
   const decimals = 18;
 
   // Token contract reads
@@ -106,7 +108,7 @@ const FlipCoin = () => {
     functionName: "symbol",
   });
 
-  // Treasury balance check (inspired by second code)
+  // Treasury balance check
   const { data: treasuryBalance } = useReadContract({
     address: state.tokenAddress as `0x${string}`,
     abi: [
@@ -138,13 +140,12 @@ const FlipCoin = () => {
     hash: flipHash,
   });
 
-  // Event listener for BetSent
+  // Event listeners
   useWatchContractEvent({
     address: ADDRESS,
     abi: ABI,
     eventName: "BetSent",
     onLogs(logs) {
-      // Ensure logs are typed with decoded args
       const log = logs[0] as (typeof logs)[0] & {
         args: { requestId: bigint; numWords: number };
       };
@@ -158,13 +159,11 @@ const FlipCoin = () => {
     },
   });
 
-  // Event listener for BetFulfilled
   useWatchContractEvent({
     address: ADDRESS,
     abi: ABI,
     eventName: "BetFulfilled",
     onLogs(logs) {
-      // Ensure logs are typed with decoded args
       const log = logs[0] as (typeof logs)[0] & {
         args: { requestId: bigint; userWon: boolean; rolled: bigint };
       };
@@ -339,16 +338,25 @@ const FlipCoin = () => {
     setState((prev) => ({ ...prev, face: !prev.face }));
   };
 
+  // Wallet connection handler
+  const handleConnect = () => {
+    if (!isConnected && connectors.length > 0) {
+      connect({ connector: connectors[0] }); // Use the first available connector (e.g., MetaMask)
+    } else if (isConnected) {
+      disconnect(); // Disconnect if already connected
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
-        {/* AppKit Wallet Button */}
+        {/* Wallet Connection Button */}
         <div className="flex justify-end">
           <button
-            onClick={() => open()}
+            onClick={handleConnect}
             className="bg-purple-700 text-white px-4 py-2 rounded"
           >
-            {isConnected ? "Connected" : "Connect Wallet"}
+            {isConnected ? "Disconnect" : "Connect Wallet"}
           </button>
         </div>
 
