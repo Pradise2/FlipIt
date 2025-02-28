@@ -4,7 +4,8 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
-  useAccount, useWatchContractEvent 
+  useAccount,  useEnsAvatar, useEnsName,
+  useConnect, useWatchContractEvent 
 } from 'wagmi';
 
 import { parseUnits, formatUnits }  from 'viem';
@@ -44,7 +45,8 @@ const FlipCoin = () => {
     won: boolean | null;
     result: string | null;
   }>({ won: null, result: null });
- 
+  
+  const { connect, connectors } = useConnect()
   const decimals = 18;
 
   // Token contract interactions Done
@@ -323,7 +325,7 @@ console.log(approvalLoading ? "Approving..." : "Approved");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
-  <div className=" flex justify-start p-4">
+      <div className=" flex justify-start p-4">
   {address && (
     <div className="bg-gray-200 rounded-lg px-4 py-2 shadow-sm">
       <span className="text-gray-800 text-sm font-medium truncate">
@@ -332,7 +334,14 @@ console.log(approvalLoading ? "Approving..." : "Approved");
     </div>
   )}
 </div>
-
+        {connectors.map((connector) => (
+          <button key={connector.id} onClick={() => connect({ connector })}>
+            {connector.name}
+          </button>
+        ))}
+      
+      
+      
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
         {state.error && (
           <div className="fixed top-4 right-4 bg-red-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
@@ -346,11 +355,6 @@ console.log(approvalLoading ? "Approving..." : "Approved");
           </div>
         )}
         
-        {requestId && (
-          <div className="text-purple-200 mt-4">
-            <p>Request ID: {requestId}</p>
-          </div>
-        )}
 
         {isFlipping && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
