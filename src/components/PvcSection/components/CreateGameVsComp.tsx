@@ -4,8 +4,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
-  useAccount,  useEnsAvatar, useEnsName,
-  useConnect, useWatchContractEvent 
+  useAccount, useWatchContractEvent 
 } from 'wagmi';
 
 import { parseUnits, formatUnits }  from 'viem';
@@ -45,9 +44,7 @@ const FlipCoin = () => {
     won: boolean | null;
     result: string | null;
   }>({ won: null, result: null });
-  const { data: ensName } = useEnsName({ address })
-  const { data: ensAvatar } = useEnsAvatar({ name: ensName! })
-  const { connect, connectors } = useConnect()
+ 
   const decimals = 18;
 
   // Token contract interactions Done
@@ -326,16 +323,16 @@ console.log(approvalLoading ? "Approving..." : "Approved");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
-      <div>
-        {ensAvatar && <img alt="ENS Avatar" src={ensAvatar} />}
-        {address && <div>{ensName ? `${ensName} (${address})` : address}</div>}
-        {connectors.map((connector) => (
-          <button key={connector.id} onClick={() => connect({ connector })}>
-            {connector.name}
-          </button>
-        ))}
-      </div>
-      
+  <div className=" flex justify-start p-4">
+  {address && (
+    <div className="bg-gray-200 rounded-lg px-4 py-2 shadow-sm">
+      <span className="text-gray-800 text-sm font-medium truncate">
+        {`${address.substring(0, 4)}...${address.substring(4, 9)}`}
+      </span>
+    </div>
+  )}
+</div>
+
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
         {state.error && (
           <div className="fixed top-4 right-4 bg-red-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
