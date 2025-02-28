@@ -334,11 +334,7 @@ console.log(approvalLoading ? "Approving..." : "Approved");
     </div>
   )}
 </div>
-        {connectors.map((connector) => (
-          <button key={connector.id} onClick={() => connect({ connector })}>
-            {connector.name}
-          </button>
-        ))}
+       
 
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
         {state.error && (
