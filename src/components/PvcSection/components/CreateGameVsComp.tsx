@@ -334,11 +334,7 @@ console.log(approvalLoading ? "Approving..." : "Approved");
     </div>
   )}
 </div>
-        {connectors.map((connector) => (
-          <button key={connector.id} onClick={() => connect({ connector })}>
-            {connector.name}
-          </button>
-        ))}
+      
       
       
       
