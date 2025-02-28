@@ -4,8 +4,8 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
-  useAccount,  useEnsName,
-   useWatchContractEvent 
+  useAccount,  useEnsAvatar, useEnsName,
+  useConnect, useWatchContractEvent 
 } from 'wagmi';
 
 import { parseUnits, formatUnits }  from 'viem';
@@ -24,16 +24,6 @@ interface FlipCoinState {
 }
 
 
-interface GameOutcome {
-  isComplete: boolean;
-  playerWon: boolean;
-  playerChoice: boolean;
-  outcome: boolean;
-  betAmount: bigint;
-  potentialPayout: bigint;
-  resultDescription: string;
-}
-
 const FlipCoin = () => {
   const [state, setState] = useState<FlipCoinState>({
     face: false,
@@ -48,22 +38,19 @@ const FlipCoin = () => {
     isBalanceLoading: false,
   });
 
-
-  const [requestId, setRequestId] = useState<string | null>(null);
- 
-
+  const [requestId, setRequestId] = useState<string | null>(null); 
   const { address, isConnected } = useAccount();
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipResult, setFlipResult] = useState<{
     won: boolean | null;
     result: string | null;
   }>({ won: null, result: null });
-  
   const { data: ensName } = useEnsName({ address })
- 
+  const { data: ensAvatar } = useEnsAvatar({ name: ensName! })
+  const { connect, connectors } = useConnect()
   const decimals = 18;
 
-  // Token contract interactions
+  // Token contract interactions Done
   const { 
     data: balanceData, 
     refetch: refetchBalance, 
@@ -78,7 +65,8 @@ const FlipCoin = () => {
     args: [address as `0x${string}`],
     query: { enabled: !!address },
   });
-
+   
+  // Token symbolData Done
   const { 
     data: symbolData, 
     refetch: refetchSymbol, 
@@ -93,55 +81,48 @@ const FlipCoin = () => {
 
   // Approval
   const { writeContract: writeApproval, data: approvalHash } = useWriteContract();
-  const { isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({ hash: approvalHash });
+  const { isSuccess: approvalConfirmed, isLoading: approvalLoading } = useWaitForTransactionReceipt({ 
+    hash: approvalHash
+  });
+console.log(approvalLoading ? "Approving..." : "Approved");
+  // Flip
+  const { writeContract: writeFlip, data: flipHash, isPending: isFlipPending } = useWriteContract();
 
- // Flip
- const { writeContract: writeFlip, data: flipHash, isPending: isFlipPending } = useWriteContract();
- const { isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: flipHash });
+  console.log(isFlipPending ? "Flipping..." : "Flipped");
+  const { isSuccess: isConfirmed, isLoading: flipConfirmLoading } = useWaitForTransactionReceipt({ 
+    hash: flipHash 
+  });
 
+  console.log(flipConfirmLoading ? "Flipping..." : "Flipped");
 
- useWatchContractEvent({
-   address: ADDRESS,
-   abi: ABI,
-   eventName: 'BetFulfilled',
-   onLogs(logs) {
-     logs.forEach((log) => {
-       // Type the log with decoded args
-       const {
-         args: {
-           payment,
-           randomWords,
-           requestId: eventRequestId,
-           resolved,
-           rolled,
-           status,
-           userWon,
-         },
-       } = log as typeof log & {
-         args: {
-           payment: bigint;
-           randomWords: bigint[];
-           requestId: bigint;
-           resolved: boolean;
-           rolled: bigint;
-           status: string;
-           userWon: boolean;
-         };
-       };
- 
-       console.log('BetFulfilled Event:');
-       console.log('Payment:', payment.toString());
-       console.log('Random Words:', randomWords);
-       console.log('Request ID:', eventRequestId.toString());
-       console.log('Resolved:', resolved);
-       console.log('Rolled:', rolled.toString());
-       console.log('Status:', status);
-       console.log('User Won:', userWon);
-
-       setRequestId(eventRequestId.toString());
+  useWatchContractEvent({
+    address: ADDRESS,
+    abi: ABI,
+    eventName: 'BetFulfilled',
+    onLogs(logs) {
+      logs.forEach((log) => {
+        const {
+          args: {
+            requestId: eventRequestId,
+          },
+        } = log as typeof log & {
+          args: {
+            payment: bigint;
+            randomWords: bigint[];
+            requestId: bigint;
+            resolved: boolean;
+            rolled: bigint;
+            status: string;
+            userWon: boolean;
+          };
+        };
+        setRequestId(eventRequestId.toString());
       });
     },
-  });
+    onError(error) {
+      console.error('Error in useWatchContractEvent:', error);
+    },
+  }); 
 
   useWatchContractEvent({
     address: ADDRESS,
@@ -149,55 +130,37 @@ const FlipCoin = () => {
     eventName: 'BetSent',
     onLogs(logs) {
       logs.forEach((log) => {
-        // Type the log to include decoded args
         const {
           args: { requestId: eventRequestId, numWords },
         } = log as typeof log & {
           args: {
             requestId: bigint;
-            numWords: number; // uint32 is typically a number in JS
+            numWords: number;
           };
         };
-
-        console.log('BetSent Event:');
-        console.log('Request ID:', eventRequestId.toString());
         console.log('Number of Words:', numWords);
-
-        // Update state with the requestId from the event
         setRequestId(eventRequestId.toString());
       });
     },
   });
 
+  const { data: betStatus } = useReadContract({
+    address: ADDRESS,
+    abi: ABI,
+    functionName: "getBetStatus",
+    args: [requestId ? BigInt(requestId) : BigInt(0)],
+    query: { enabled: !!requestId },
+  }) as { data: [bigint, boolean, boolean, bigint[], string, bigint, boolean] | undefined };
 
-
- const { data: betStatus } = useReadContract({
-  address: ADDRESS,
-  abi: ABI,
-  functionName: "getBetStatus",
-  args: [requestId ? BigInt(requestId) : BigInt(0)],
-  query: { enabled: !!requestId },
-}) as { data: [bigint, boolean, boolean, bigint[], string, bigint, boolean] | undefined 
- };
-
-console.log("Bet Status:", betStatus);
-
-
-const enabled = !!requestId && !!betStatus?.[1]; 
-console.log("Enabled for getGameOutcome:", enabled);
-
-const { data: gameOutcome } = useReadContract({
-  address: ADDRESS,
-  abi: ABI,
-  functionName: "getGameOutcome",
-  args: [requestId ? BigInt(requestId) : BigInt(0)],
-  query: {
-    enabled: !!requestId && !!betStatus?.[1]
-  },
-}) as { data: GameOutcome | undefined };
-
-console.log("Game Outcome:", gameOutcome);
-
+  const { data: gameOutcome } = useReadContract({
+    address: ADDRESS,
+    abi: ABI,
+    functionName: "getGameOutcome",
+    args: [requestId ? BigInt(requestId) : BigInt(0)],
+    query: {
+      enabled: !!requestId && !!betStatus?.[1]
+    },
+  }) as { data: [boolean, boolean, boolean, boolean, bigint, bigint, string] | undefined };
 
   const fetchTokenBalance = useCallback(() => {
     if (balanceData && symbolData) {
@@ -224,15 +187,73 @@ console.log("Game Outcome:", gameOutcome);
     }
   }, [isBalanceFetching, isSymbolFetching, fetchTokenBalance]);
    
-  // Update balance after flip completes
+  // Monitor approval status
+  useEffect(() => {
+    if (approvalConfirmed && state.isApproving) {
+      console.log("Approval confirmed, proceeding to flip");
+      
+      // Execute the flip transaction once approval is confirmed
+      try {
+        const amountInWei = parseUnits(state.tokenAmount, decimals);
+        writeFlip({
+          address: ADDRESS,
+          abi: ABI,
+          functionName: "flip",
+          args: [state.face, state.tokenAddress as `0x${string}`, amountInWei],
+        });
+        
+        // Update state to show we're no longer approving, but still flipping
+        setState(prev => ({ ...prev, isApproving: false }));
+      } catch (error) {
+        console.error("Error executing flip after approval:", error);
+        setState(prev => ({ 
+          ...prev, 
+          error: error instanceof Error ? error.message : "Failed to flip", 
+          loading: false, 
+          isApproving: false 
+        }));
+        setIsFlipping(false);
+      }
+    }
+  }, [approvalConfirmed, state.isApproving, state.tokenAmount, state.face, state.tokenAddress, writeFlip]);
+
+  // Effect for handling the completion of the flip transaction
   useEffect(() => {
     if (isConfirmed && flipHash) {
-      console.log("Flip Confirmed, Refetching Balance...");
-      setState(prev => ({ ...prev, loading: false, isBalanceLoading: true }));
-      setIsFlipping(false);
-      refetchBalance();
+      setState(prev => ({ 
+        ...prev, 
+        loading: true, 
+        isBalanceLoading: true,
+        success: "Transaction confirmed, waiting for result..."
+      }));
+      
+      // Keep the flipping UI visible while waiting for the result
+      setIsFlipping(true);
     }
-  }, [isConfirmed, flipHash, refetchBalance]);
+  }, [isConfirmed, flipHash]);
+
+  // Monitor bet outcome
+  useEffect(() => {
+    if (betStatus && requestId) {
+      if (betStatus[1] && gameOutcome) {
+        // Game is resolved
+        setFlipResult({
+          won: gameOutcome[1],
+          result: `You ${gameOutcome[1] ? "Won" : "Lost"}. Choice: ${gameOutcome[2] ? "Tails" : "Heads"}, Outcome: ${gameOutcome[3] ? "Tails" : "Heads"}`,
+        });
+        
+        setState(prev => ({ 
+          ...prev, 
+          success: "Game completed", 
+          loading: false,
+          isApproving: false
+        }));
+        
+        // The UI will still show the flipping overlay until the user closes it
+        refetchBalance();
+      }
+    }
+  }, [betStatus, gameOutcome, requestId, refetchBalance]);
 
   const validateInput = (): string | null => {
     if (!isConnected || !address) return "Please connect your wallet";
@@ -244,21 +265,25 @@ console.log("Game Outcome:", gameOutcome);
   const handleFlipCoin = async () => {
     const validationError = validateInput();
     if (validationError) {
-      console.log("Validation Error:", validationError);
       setState(prev => ({ ...prev, error: validationError }));
       return;
     }
 
-    console.log("Starting Flip Process...");
-    setState(prev => ({ ...prev, loading: true, error: null, success: null }));
+    // Reset any previous state
+    setState(prev => ({ 
+      ...prev, 
+      loading: true, 
+      error: null, 
+      success: null,
+      isApproving: true
+    }));
+    
     setIsFlipping(true);
 
     try {
       const amountInWei = parseUnits(state.tokenAmount, decimals);
-      console.log("Amount in Wei:", amountInWei.toString());
-
-      console.log("Initiating Approval...");
-      setState(prev => ({ ...prev, isApproving: true }));
+      
+      // Request token approval
       writeApproval({
         address: state.tokenAddress as `0x${string}`,
         abi: [
@@ -267,76 +292,64 @@ console.log("Game Outcome:", gameOutcome);
         functionName: "approve",
         args: [ADDRESS, amountInWei],
       });
+      
+      // The flip transaction will be executed in the useEffect that watches approvalConfirmed
     } catch (error) {
-      console.error("Flip Error:", error);
-      setState(prev => ({ ...prev, error: error instanceof Error ? error.message : "Failed to flip", loading: false, isApproving: false }));
+      console.error("Approval Error:", error);
+      setState(prev => ({ 
+        ...prev, 
+        error: error instanceof Error ? error.message : "Failed to approve token", 
+        loading: false, 
+        isApproving: false 
+      }));
       setIsFlipping(false);
     }
   };
 
-  useEffect(() => {
-    if (approvalConfirmed && !isFlipPending && !flipHash) {
-      console.log("Approval Confirmed, Initiating Flip...");
-      const amountInWei = parseUnits(state.tokenAmount, decimals);
-      writeFlip({
-        address: ADDRESS,
-        abi: ABI,
-        functionName: "flip",
-        args: [state.face, state.tokenAddress as `0x${string}`, amountInWei],
-      });
-      setState(prev => ({ ...prev, isApproving: false }));
-    }
-  }, [approvalConfirmed, isFlipPending, flipHash, state.face, state.tokenAmount, state.tokenAddress]); 
-
- useEffect(() => {
-  if (betStatus && requestId) {
-    console.log("Bet Status:", betStatus);
-    if (betStatus?.[1] && gameOutcome) {
-      console.log("Game Outcome:", gameOutcome);
-      setFlipResult({
-        won: gameOutcome.playerWon,
-        result: `You ${gameOutcome.playerWon ? "Won" : "Lost"}. Choice: ${gameOutcome.playerChoice ? "Tails" : "Heads"}, Outcome: ${gameOutcome.outcome ? "Tails" : "Heads"}`,
-      });
-      setState(prev => ({ ...prev, success: "Game completed", loading: false }));
-      setIsFlipping(false);
-      fetchTokenBalance();
-    }
-  }
-}, [betStatus, gameOutcome, requestId, fetchTokenBalance]);
-
   const handleChoiceClick = () => {
-    console.log("Choice toggled from", state.face ? "Tails" : "Heads", "to", !state.face ? "Tails" : "Heads");
     setState(prev => ({ ...prev, face: !prev.face }));
   };
 
   const resetFlipState = () => {
+    // Reset all game-related state to allow a new bet
     setFlipResult({ won: null, result: null });
-    setState(prev => ({ ...prev, success: null, error: null }));
+    setState(prev => ({ 
+      ...prev, 
+      success: null, 
+      error: null, 
+      loading: false,
+      isApproving: false,
+    }));
+    setIsFlipping(false);
     setRequestId(null);
-    setIsFlipping(false); // Ensure flipping is reset
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
-   {address && (
-  <div className="text-white">
-    {ensName 
-      ? `${ensName} (${address.slice(0, 6)}...${address.slice(-4)})` 
-      : `${address.slice(0, 6)}...${address.slice(-4)}`}
-  </div>
-)}
+      <div>
+        {ensAvatar && <img alt="ENS Avatar" src={ensAvatar} />}
+        {address && <div>{ensName ? `${ensName} (${address})` : address}</div>}
+        {connectors.map((connector) => (
+          <button key={connector.id} onClick={() => connect({ connector })}>
+            {connector.name}
+          </button>
+        ))}
+      </div>
+      
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
         {state.error && (
           <div className="fixed top-4 right-4 bg-red-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
             {state.error}
           </div>
         )}
+        
         {state.success && (
           <div className="fixed top-4 right-4 bg-green-500/90 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in">
             {state.success}
           </div>
         )}
-         {requestId && (
+        
+        {requestId && (
           <div className="text-purple-200 mt-4">
             <p>Request ID: {requestId}</p>
           </div>
@@ -361,10 +374,10 @@ console.log("Game Outcome:", gameOutcome);
               </h2>
               <p>{flipResult.result}</p>
               <button
-               onClick={resetFlipState}
+                onClick={resetFlipState}
                 className="mt-4 bg-purple-500 text-white px-4 py-2 rounded"
               >
-                Close
+                Place New Bet
               </button>
             </div>
           </div>
@@ -430,7 +443,6 @@ console.log("Game Outcome:", gameOutcome);
                   id="token"
                   value={state.tokenAddress}
                   onChange={(e) => {
-                    console.log("Token changed to:", e.target.value);
                     setState(prev => ({
                       ...prev,
                       tokenAddress: e.target.value,
@@ -457,7 +469,6 @@ console.log("Game Outcome:", gameOutcome);
                 placeholder="0.00"
                 value={state.tokenAmount}
                 onChange={(e) => {
-                  console.log("Bet amount changed to:", e.target.value);
                   setState(prev => ({ ...prev, tokenAmount: e.target.value }));
                 }}
                 className="w-full bg-purple-900/50 border border-purple-700/30 text-purple-100 rounded-md p-2 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-600/50"

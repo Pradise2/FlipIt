@@ -862,3 +862,44 @@ export const SUPPORTED_TOKENS = {
   RaTcHeT: "0x1d35741c51fb615ca70e28d3321f6f01e8d8a12d",
   GIRTH: "0xa97d71a5fdf906034d9d121ed389665427917ee4",
 };
+
+
+
+// Define the full ERC20 ABI with the required functions
+export const erc20ABI = [
+  {
+    "constant": true,
+    "inputs": [
+      { "name": "owner", "type": "address" },
+      { "name": "spender", "type": "address" }
+    ],
+    "name": "allowance",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      { "name": "spender", "type": "address" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "name": "approve",
+    "outputs": [{ "name": "", "type": "bool" }],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [{ "name": "owner", "type": "address" }],
+    "name": "balanceOf",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+// Rest of your component code remains unchanged...
