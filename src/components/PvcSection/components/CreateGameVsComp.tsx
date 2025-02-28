@@ -377,18 +377,16 @@ const FlipCoin = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950">
       <div className=" flex justify-start p-4">
-
-
-  {address && (
-    <div className="bg-gray-200 rounded-lg px-4 py-2 shadow-sm">
-      <span className="text-gray-800 text-sm font-medium truncate">
-      {`${address.substring(0, 4)}...${address.substring(address.length - 5)}`}
-      </span>
-    </div>
-  )}
-</div>
-       
-
+        {address && (
+          <div className="bg-gray-200 rounded-lg px-4 py-2 shadow-sm">
+            <span className="text-gray-800 text-sm font-medium truncate">
+              {`${address.substring(0, 4)}...${address.substring(
+                address.length - 5
+              )}`}
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className="bg-[radial-gradient(circle_at_center,_rgba(88,28,135,0.15),_transparent_70%)] min-h-screen p-6 space-y-4">
         {state.error && (
