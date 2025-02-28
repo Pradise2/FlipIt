@@ -4,7 +4,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
-  useAccount,  useEnsAvatar, useEnsName,
+  useAccount,  
   useConnect, useWatchContractEvent 
 } from 'wagmi';
 
