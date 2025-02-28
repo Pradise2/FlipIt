@@ -5,7 +5,7 @@ import {
   useWaitForTransactionReceipt,
   useReadContract,
   useAccount,  
-  useConnect, useWatchContractEvent 
+   useWatchContractEvent 
 } from 'wagmi';
 
 import { parseUnits, formatUnits }  from 'viem';
@@ -45,8 +45,7 @@ const FlipCoin = () => {
     won: boolean | null;
     result: string | null;
   }>({ won: null, result: null });
-  
-  const { connect, connectors } = useConnect()
+
   const decimals = 18;
 
   // Token contract interactions Done
