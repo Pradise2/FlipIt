@@ -7,7 +7,7 @@ A decentralized, provably fair coin-flipping game built on the Base blockchain. 
 
 **Live Demo:** [**https://flip-it-steel.vercel.app/**](https://flip-it-steel.vercel.app/)
 
- <!-- It's highly recommended to replace this with a real screenshot of your app -->
+<!-- It's highly recommended to replace this with a real screenshot of your app -->
 
 ---
 
@@ -114,3 +114,4 @@ Distributed under the MIT License.
 **Pradise2**
 
 **Project Link:** [https://github.com/Pradise2/FlipIt](https://github.com/Pradise2/FlipIt)
+
